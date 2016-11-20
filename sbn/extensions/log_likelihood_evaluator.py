@@ -93,7 +93,7 @@ def evaluate_log_likelihood(
     """
     evaluator = LogLikelihoodEvaluator(iterator, target, device, n_epochs, n_samples)
 
-    @make_extension(trigger=(1, 'epoch'p), default_name='validation', priority=PRIORITY_WRITER)
+    @make_extension(trigger=(1, 'epoch'), default_name='validation', priority=PRIORITY_WRITER)
     def log_likelihood_evaluator(_) -> None:
         vb, mcb = evaluator.evaluate()
         name = get_name()

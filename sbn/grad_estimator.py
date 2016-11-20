@@ -1,3 +1,7 @@
+from typing import Optional
+
+from chainer import Link
+
 from sbn.util import Array
 
 __all__ = ['GradientEstimator']
@@ -21,6 +25,14 @@ class GradientEstimator:
 
         Args:
             x: Input array.
+
+        """
+        raise NotImplementedError
+
+    def get_estimator_model(self) -> Optional[Link]:
+        """Returns a model that contains internal parameters of the estimator.
+
+        Some estimators have their own parameters. This method returns a link if such parameters exist.
 
         """
         raise NotImplementedError

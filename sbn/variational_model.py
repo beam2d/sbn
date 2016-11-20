@@ -1,7 +1,7 @@
 import math
 from typing import Sequence, Tuple
 
-from chainer import Variable
+from chainer import AbstractSerializer, Variable
 import chainer.functions as F
 
 from sbn.random_variable import RandomVariable
@@ -39,6 +39,10 @@ class VariationalModel:
 
     def to_cpu(self) -> None:
         """Migrates all parameters and arrays in the model to CPU."""
+        raise NotImplementedError
+
+    def copyparams(self, model) -> None:
+        """Copies parameters from another model."""
         raise NotImplementedError
 
     def infer(self, x: Variable) -> Tuple[RandomVariable, ...]:
@@ -149,4 +153,8 @@ class VariationalModel:
             Local signals of latent variables. The i-th element represents the local signal of the i-th variable.
 
         """
+        raise NotImplementedError
+
+    def serialize(self, serializer: AbstractSerializer) -> None:
+        """Serializes the model."""
         raise NotImplementedError

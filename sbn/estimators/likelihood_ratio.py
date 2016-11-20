@@ -96,3 +96,6 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
             bl_terms = -F.sum(signals * baselines)
             self.baseline_models.cleargrads()
             bl_terms.backward()
+
+    def get_estimator_model(self) -> Optional[Link]:
+        return self.baseline_models

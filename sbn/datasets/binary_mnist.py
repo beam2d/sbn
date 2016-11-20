@@ -62,7 +62,7 @@ def get_online_binary_mnist(seed: int=1091) -> Tuple[OnlineBinaryArrays, OnlineB
     train, test = datasets.get_mnist(withlabel=False)
     rs = np.random.RandomState(seed)
     rs.shuffle(train)
-    train = OnlineBinaryArrays(train[:50000])
-    valid = OnlineBinaryArrays(train[50000:])
-    test = OnlineBinaryArrays(test)
-    return train, valid, test
+    binary_train = OnlineBinaryArrays(train[:50000])
+    binary_valid = OnlineBinaryArrays(train[50000:])
+    binary_test = OnlineBinaryArrays(test)
+    return binary_train, binary_valid, binary_test

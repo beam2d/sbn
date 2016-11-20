@@ -1,11 +1,11 @@
 import copy
 from typing import Callable, Dict
 
-from chainer import Link, report
+from chainer import Link, report, Variable
 from chainer.dataset import concat_examples, Iterator
 from chainer.training import make_extension, PRIORITY_WRITER, Trainer
 
-from sbn.grad_estimator import GradientEstimator
+from sbn.gradient_estimator import GradientEstimator
 from sbn.util import Array
 
 
@@ -64,13 +64,13 @@ class GradientVarianceEvaluator:
             batch = next(iterator)
             x = concat_examples(batch, self._device)
             model.cleargrads()
-            estimator.estimate_gradient(x)
+            estimator.estimate_gradient(Variable(x))
 
             n += 1
             for name, param in model.namedparams():
                 delta = param.grad - mean[name]
                 mean[name] += delta / n
-                var[name] += delta * (x - mean[name])
+                var[name] += delta * (param.grad - mean[name])
 
         for k in var.keys():
             var[k] /= n - 1

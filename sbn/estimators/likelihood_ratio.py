@@ -4,7 +4,7 @@ from chainer import Chain, ChainList, cuda, Link, Variable
 import chainer.functions as F
 import numpy as np
 
-from sbn.grad_estimator import GradientEstimator
+from sbn.gradient_estimator import GradientEstimator
 from sbn.util import Array
 from sbn.variational_model import VariationalModel
 
@@ -26,6 +26,7 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         alpha: Moving average coefficient of the accumulated signal values. This is the alpha parameter of NVIL, which
             appears in the appendix of [1].
         normalize_variance: If true, variance normalization is enabled.
+        n_samples: Number of samples used for Monte Carlo simulations.
 
     Reference;
         [1]: A. Mnih and K. Gregor. Neural Variational Inference and Learning in Belief Networks. ICML, 2014.
@@ -36,7 +37,8 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
             model: VariationalModel,
             baseline_models: Optional[Sequence[Link]]=None,
             alpha: float=0.8,
-            normalize_variance=False
+            normalize_variance=False,
+            n_samples: int=1
     ) -> None:
         super().__init__()
         self._model = model
@@ -57,8 +59,26 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         else:
             self.add_link('baseline_models', ChainList(*baseline_models))
 
+        self._n_samples = n_samples
+
+    def to_cpu(self) -> None:
+        self.c = cuda.to_cpu(self.c)
+        if self.v is not None:
+            self.v = cuda.to_cpu(self.v)
+        if self.baseline_models is not None:
+            self.baseline_models.to_cpu()
+
+    def to_gpu(self, device=None) -> None:
+        self.c = cuda.to_gpu(self.c, device)
+        if self.v is not None:
+            self.v = cuda.to_gpu(self.v, device)
+        if self.baseline_models is not None:
+            self.baseline_models.to_gpu(device)
+
     def estimate_gradient(self, x: Variable) -> None:
         xp = cuda.get_array_module(x.data)
+        if self._n_samples > 1:
+            x = Variable(x.data.repeat(self._n_samples, axis=0), volatile=x.volatile)
 
         zs = self._model.infer(x)
         ps = self._model.compute_generative_factors(x, zs)
@@ -74,7 +94,7 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
             for z, bl_model in zip(zs, self.baseline_models):
                 bl = bl_model(*args)
                 baselines_list.append(bl)
-                args.append(z)
+                args.append(z.sample)
             baselines = F.vstack(baselines_list)
             signals -= baselines.data
 
@@ -90,6 +110,7 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         p_terms = F.sum(F.vstack([p.log_prob for p in ps]))
         q_terms = F.sum(signals * F.vstack([z.log_prob for z in zs]))
         # Note: we have to compute the gradient w.r.t. the bound of the NEGATIVE log likelihood
+        self._model.cleargrads()
         (-p_terms - q_terms).backward()
 
         if self.baseline_models is not None:

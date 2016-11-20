@@ -103,9 +103,9 @@ class SigmoidBernoulliVariable(RandomVariable):
         self._sample = sample
 
         if sample is not None and logit.shape != sample.shape:
-            raise ValueError('shape mismatched between logit and sample')
+            raise ValueError('shape mismatched between logit and sample: {} and {}'.format(logit.shape, sample.shape))
         if noise is not None and logit.shape != noise.shape:
-            raise ValueError('shape mismatched between logit and noise')
+            raise ValueError('shape mismatched between logit and noise: {} and {}'.format(logit.shape, noise.shape))
 
     @cached_property
     def mean(self) -> Variable:

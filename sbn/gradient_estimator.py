@@ -15,6 +15,19 @@ class GradientEstimator:
     estimator). In such a case, the implementation should also inherits ``chainer.Link`` or ``chainer.Chain``.
 
     """
+    def to_cpu(self) -> None:
+        """Migrates all parameters and arrays in the estimator to CPU."""
+        raise NotImplementedError
+
+    def to_gpu(self, device=None) -> None:
+        """Migrates all parameters and arrays in the estimator to GPU.
+
+        Args:
+            device: Device specifier.
+
+        """
+        raise NotImplementedError
+
     def estimate_gradient(self, x: Array) -> None:
         """Estimates a gradient w.r.t. a given input array.
 

@@ -52,6 +52,10 @@ class VariationalSBN(VariationalModel):
     def n_stochastic_layers(self) -> int:
         return len(self.inference_net)
 
+    def cleargrads(self) -> None:
+        self.generative_net.cleargrads()
+        self.inference_net.cleargrads()
+
     def copyparams(self, model) -> None:
         self.generative_net.copyparams(model.generative_net)
         self.inference_net.copyparams(model.inference_net)

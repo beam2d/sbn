@@ -4,9 +4,10 @@ import json
 import os
 from typing import Any, Optional, Tuple
 
-from chainer import Chain, Function, is_debug, Link, Optimizer, set_debug, Variable
-from chainer import cuda, functions as F, links as L, optimizers
+from chainer import Function, is_debug, Link, Optimizer, set_debug
+from chainer import cuda, links as L, optimizers
 from chainer.iterators import SerialIterator
+from chainer.optimizer import WeightDecay
 from chainer.serializers import load_npz
 from chainer.training import Trainer
 from chainer.training.extensions import LogReport, PrintReport, ProgressBar, snapshot, snapshot_object
@@ -17,7 +18,8 @@ from sbn.datasets import get_offline_binary_mnist, get_online_binary_mnist
 from sbn.estimators import LikelihoodRatioEstimator
 from sbn.extensions import evaluate_gradient_variance, evaluate_log_likelihood, KeepBestModel, report_training_time
 from sbn.extensions import LogLikelihoodEvaluator
-from sbn.grad_estimator import GradientEstimator
+from sbn.gradient_estimator import GradientEstimator
+from sbn.links import BaselineModel
 from sbn.models import VariationalSBN
 from sbn.updater import Updater
 from sbn.variational_model import VariationalModel
@@ -66,6 +68,7 @@ def train_variational_model(
         - use_baseline_model: If true, use baseline models (False by default).
         - alpha: Alpha parameter of the baseline/variance estimation (0.8 by default).
         - normalize_variance: If true, use variance normalization (False by default).
+        - n_samples: Number of samples used for each Monte Carlo simulation.
 
     - batch_size: Training mini-batch size (100 by default).
     - iteration: Number of iterations to train.
@@ -84,7 +87,7 @@ def train_variational_model(
 
     """
     with _debug_mode(debug):
-        with cuda.get_device(gpu):
+        with cuda.get_device(gpu if gpu >= 0 else None):
             return _train_variational_model(config, gpu, resume, verbose)
 
 
@@ -115,12 +118,13 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 
     # Set up a model and optimizers
     model = VariationalSBN(gen_layers, infer_layers, prior_size, mean)
+    estimator = _build_estimator(config['estimator'], len(infer_layers), model)
     if use_gpu:
         model.to_gpu()
-    estimator = _build_estimator(config['estimator'], len(infer_layers), model)
+        estimator.to_gpu()
 
-    gen_optimizer = _build_optimizer(config['generative_net']['optimizer'], gen_layers)
-    infer_optimizer = _build_optimizer(config['inference_net']['optimizer'], infer_layers)
+    gen_optimizer = _build_optimizer(config['generative_net']['optimizer'], model.generative_net)
+    infer_optimizer = _build_optimizer(config['inference_net']['optimizer'], model.inference_net)
 
     estimator_model = estimator.get_estimator_model()
     est_optimizer = _build_optimizer(config['estimator']['optimizer'], estimator_model)
@@ -207,24 +211,14 @@ def _build_layers(config: dict) -> Tuple[Tuple[Link, ...], int]:
         raise ValueError('unsupported layer type: "{}"'.format(typ))
 
 
-class _Baseline(Chain):
-
-    def __init__(self, n_units=200):
-        super().__init__(l1=L.Linear(None, n_units), l2=L.Linear(n_units, 1))
-
-    def __call__(self, x: Variable) -> Variable:
-        B = len(x.data)
-        h = F.tanh(self.l1(x))
-        return F.reshape(self.l2(h), (B,))
-
-
 def _build_estimator(config: dict, n_layers: int, model: VariationalModel) -> GradientEstimator:
     method = config['method']
     if method == 'likelihood_ratio':
         use_baseline_model = config.get('use_baseline_model', False)
-        baseline_model = [_Baseline() for _ in range(n_layers)] if use_baseline_model else None
+        baseline_model = [BaselineModel() for _ in range(n_layers)] if use_baseline_model else None
+        n_samples = config.get('n_samples', 1)
         return LikelihoodRatioEstimator(
-            model, baseline_model, config.get('alpha', 0.8), config.get('variance_normalization', False))
+            model, baseline_model, config.get('alpha', 0.8), config.get('variance_normalization', False), n_samples)
     else:
         raise ValueError('unknown estimator type: "{}"'.format(method))
 
@@ -246,6 +240,11 @@ def _build_optimizer(config: dict, target: Optional[Link]) -> Optional[Optimizer
     else:
         raise ValueError('unknown optimizer method: "{}"'.format(method))
     opt.setup(target)
+
+    decay = config.get('weight_decay', 0.)
+    if decay > 0:
+        opt.add_hook(WeightDecay(decay))
+
     return opt
 
 

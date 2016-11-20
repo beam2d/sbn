@@ -57,11 +57,11 @@ class LogLikelihoodEvaluator:
             for epoch in range(self._n_epochs):
                 iterator = copy.copy(self._iterator)
                 for batch in iterator:
-                    x = concat_examples(batch, self._device)
                     B = len(batch)
                     K = self._n_samples
-                    D = x.shape[1]
-                    x = x.reshape(1, B, D).repeat(K, axis=0).reshape(B * K, D)
+
+                    x = concat_examples(batch, self._device)
+                    x = x.repeat(K, axis=0)
 
                     zs = model.infer(x)
                     ps = model.compute_generative_factors(x, zs)

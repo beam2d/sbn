@@ -28,6 +28,18 @@ class VariationalModel:
         """
         raise NotImplementedError
 
+    def cleargrads(self) -> None:
+        """Clears all gradients of the parameters."""
+        raise NotImplementedError
+
+    def copyparams(self, model) -> None:
+        """Copies parameters from another model."""
+        raise NotImplementedError
+
+    def to_cpu(self) -> None:
+        """Migrates all parameters and arrays in the model to CPU."""
+        raise NotImplementedError
+
     def to_gpu(self, device=None) -> None:
         """Migrates all parameters and arrays in the model to GPU.
 
@@ -35,14 +47,6 @@ class VariationalModel:
             device: Device specifier.
 
         """
-        raise NotImplementedError
-
-    def to_cpu(self) -> None:
-        """Migrates all parameters and arrays in the model to CPU."""
-        raise NotImplementedError
-
-    def copyparams(self, model) -> None:
-        """Copies parameters from another model."""
         raise NotImplementedError
 
     def infer(self, x: Variable) -> Tuple[RandomVariable, ...]:

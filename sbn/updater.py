@@ -1,10 +1,10 @@
 from typing import Optional
 
-from chainer import AbstractSerializer, Optimizer
+from chainer import AbstractSerializer, Optimizer, Variable
 from chainer.dataset import Iterator
 from chainer.training import StandardUpdater
 
-from sbn.grad_estimator import GradientEstimator
+from sbn.gradient_estimator import GradientEstimator
 
 
 __all__ = ['Updater']
@@ -36,18 +36,12 @@ class Updater(StandardUpdater):
         batch = self.get_iterator('main').next()
         x = self.converter(batch, self.device)
 
-        gen_optimizer = self.get_optimizer('gen')
-        infer_optimizer = self.get_optimizer('infer')
-        estimator_optimizer = self.get_optimizer('estimator') if self.has_estimator_optimizer else None
+        self._estimator.estimate_gradient(Variable(x))
 
-        gen_optimizer.target.cleargrads()
-        infer_optimizer.target.cleargrads()
-        self._estimator.estimate_gradient(x)
-
-        gen_optimizer.update()
-        infer_optimizer.update()
-        if estimator_optimizer is not None:
-            estimator_optimizer.update()
+        self.get_optimizer('gen').update()
+        self.get_optimizer('infer').update()
+        if self.has_estimator_optimizer:
+            self.get_optimizer('estimator').update()
 
     def serialize(self, serializer: AbstractSerializer) -> None:
         super().serialize(serializer)

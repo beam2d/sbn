@@ -13,7 +13,9 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose print mode')
     args = parser.parse_args()
 
-    train_variational_model(args.config. args.gpu, args.resume, args.debug, args.verbose)
+    with open(args.config) as config_file:
+        config = config_file.read()
+    train_variational_model(config, args.gpu, args.resume, args.debug, args.verbose)
 
 
 if __name__ == '__main__':

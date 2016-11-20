@@ -32,7 +32,7 @@ def train_variational_model(
         resume: str='',
         debug: bool=False,
         verbose: bool=False
-) -> VariationalModel
+) -> VariationalModel:
     """Trains a variational model.
 
     Args:
@@ -108,10 +108,12 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
     out_path = os.path.join('result', exp_name)
     use_gpu = gpu >= 0
 
+    # Load datasets
     mean, train, valid, test = _get_dataset(config['dataset'], config.get('binarize_online', True), use_gpu)
     infer_layers, prior_size = _build_layers(config['inference_net'])
     gen_layers, _ = _build_layers(config['generative_net'])
 
+    # Set up a model and optimizers
     model = VariationalSBN(gen_layers, infer_layers, prior_size, mean)
     if use_gpu:
         model.to_gpu()
@@ -123,11 +125,13 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
     estimator_model = estimator.get_estimator_model()
     est_optimizer = _build_optimizer(config['estimator']['optimizer'], estimator_model)
 
+    # Set up a trainer
     train_batch_size = config.get('batch_size', 100)
     train_iterator = SerialIterator(train, train_batch_size)
     updater = Updater(estimator, train_iterator, gen_optimizer, infer_optimizer, est_optimizer)
     trainer = Trainer(updater, (config['iteration'], 'iteration'), out_path)
 
+    # Add extensions
     eval_interval = config.get('eval_interval', 50000), 'iteration'
     eval_batch_size = config.get('eval_batch_size', 100)
     n_eval_epochs = config.get('n_eval_epochs', 1)
@@ -152,7 +156,7 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 
     report_training_time(trainer)
 
-    snapshot_interval = config.get('snapshot_interval', 100000), 'iteration'
+    snapshot_interval = config.get('snapshot_interval', 1000000), 'iteration'
     trainer.extend(snapshot(), trigger=snapshot_interval)
     trainer.extend(snapshot_object(best_model, 'best_model_iter_{.updater.iteration}'), trigger=snapshot_interval)
 
@@ -165,10 +169,21 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 
     if resume:
         load_npz(resume, trainer)
+
+    # Copy the config file to the output directory
+    try:
+        os.makedirs(out_path)
+    except OSError:
+        pass
+    with open(os.path.join(out_path, 'config.yaml'), 'w') as config_out:
+        config_out.write(config_raw)
+
+    # Training
     if verbose:
         print('start training...')
     trainer.run()
 
+    # Test
     if verbose:
         print('testing...')
     test_iter = SerialIterator(test, config.get('test_batch_size', 1), repeat=False, shuffle=False)
@@ -179,6 +194,8 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
         json.dump({'iteration': keep_best_model.best_iteration, 'vb': float(vb), 'mcb': float(mcb)}, f)
     if verbose:
         print('...finished')
+
+    return best_model
 
 
 def _build_layers(config: dict) -> Tuple[Tuple[Link, ...], int]:
@@ -204,7 +221,7 @@ class _Baseline(Chain):
 def _build_estimator(config: dict, n_layers: int, model: VariationalModel) -> GradientEstimator:
     method = config['method']
     if method == 'likelihood_ratio':
-        use_baseline_model = config.get('baseline_model', False)
+        use_baseline_model = config.get('use_baseline_model', False)
         baseline_model = [_Baseline() for _ in range(n_layers)] if use_baseline_model else None
         return LikelihoodRatioEstimator(
             model, baseline_model, config.get('alpha', 0.8), config.get('variance_normalization', False))

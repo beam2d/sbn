@@ -42,6 +42,43 @@ def train_variational_model(
         debug: If True, it runs in the debug mode.
         verbose: If True, it prints messages.
 
+    Following is the YAML config entries.
+
+    - name: Name of the experiment. The output path is set to 'result/<name>'.
+    - dataset: Dataset name.
+    - binarize_online: If true, binarization is done online (True by default).
+    - inference_net: Inference network configuration. It is a dictionary containing the following entries.
+
+      - type: Type of the network (linear by default).
+      - units: Number of units in each layer (from the shallowest layer to the deepest layer).
+      - optimizer: Optimizer configuration for the network. It is a dictionary containing the following entries.
+
+        - method: Optimization method (sgd by default).
+        - (other entries): Other entries are used for initializing the optimizer.
+
+    - generative_net: Generative network configuration. The format is same as inference_net.
+    - estimator: Gradient estimator configuration. It is a dictionary containing the following entries.
+
+      - method: Estimation method.
+      - optimizer: Optimizer configuration for the estimator. The format is same as that of the inference net.
+      - (options for method=likelihood_ratio):
+
+        - use_baseline_model: If true, use baseline models (False by default).
+        - alpha: Alpha parameter of the baseline/variance estimation (0.8 by default).
+        - normalize_variance: If true, use variance normalization (False by default).
+
+    - batch_size: Training mini-batch size (100 by default).
+    - iteration: Number of iterations to train.
+    - eval_batch_size: Evaluation mini-batch size (100 by default).
+    - eval_interval: Evaluation interval in iterations (50000 by default).
+    - n_eval_epochs: Number of epochs for each evaluation (1 by default).
+    - n_eval_samples: Number of samples used for validating the Monte Carlo objective (50 by default).
+    - grad_eval_iteration: Number of iterations for evaluating the gradient variance (1000 by default).
+    - snapshot_interval: Snapshot interval in iterations (1000000 by default).
+    - test_batch_size: Final test mini-batch size (1 by default).
+    - n_test_epochs: Number of epochs for the final evaluation (1 by default).
+    - n_test_samples: Number of samples used for the final evaluation of the Monte Carlo objective (50000 by default).
+
     Returns:
         Learned variational model.
 

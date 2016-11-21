@@ -1,6 +1,6 @@
 from typing import Optional, Sequence, Tuple
 
-from chainer import ChainList, cuda, Link, Variable
+from chainer import AbstractSerializer, ChainList, cuda, Link, Variable
 import chainer.functions as F
 
 from sbn.random_variable import RandomVariable, SigmoidBernoulliVariable
@@ -104,3 +104,9 @@ class VariationalSBN(VariationalModel):
             current = current + p.log_prob.data - q.log_prob.data
             signals.append(current)
         return tuple(reversed(signals))
+
+    def serialize(self, serializer: AbstractSerializer) -> None:
+        self.generative_net.serialize(serializer['generative_net'])
+        self.inference_net.serialize(serializer['inference_net'])
+        if self.mean is not None:
+            self.mean = serializer('mean', self.mean)

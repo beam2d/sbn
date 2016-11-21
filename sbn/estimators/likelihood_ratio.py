@@ -77,8 +77,9 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
 
     def estimate_gradient(self, x: Variable) -> None:
         xp = cuda.get_array_module(x.data)
-        if self._n_samples > 1:
-            x = Variable(x.data.repeat(self._n_samples, axis=0), volatile=x.volatile)
+        K = self._n_samples
+        if K > 1:
+            x = Variable(x.data.repeat(K, axis=0), volatile=x.volatile)
 
         zs = self._model.infer(x)
         ps = self._model.compute_generative_factors(x, zs)
@@ -111,10 +112,10 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         q_terms = F.sum(signals * F.vstack([z.log_prob for z in zs]))
         # Note: we have to compute the gradient w.r.t. the bound of the NEGATIVE log likelihood
         self._model.cleargrads()
-        (-p_terms - q_terms).backward()
+        ((-p_terms - q_terms) / K).backward()
 
         if self.baseline_models is not None:
-            bl_terms = -F.sum(signals * baselines)
+            bl_terms = -F.sum(signals * baselines) / K
             self.baseline_models.cleargrads()
             bl_terms.backward()
 

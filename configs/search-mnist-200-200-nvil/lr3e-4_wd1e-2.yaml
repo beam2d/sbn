@@ -1,14 +1,14 @@
-name: mnist-200-200-784-NVIL
+name: mnist-200-200-nvil_lr3e-4_wd1e-2
 dataset: mnist
 binarize_online: true
-iteration: 4_000_000
+iteration: 500_000
 
 inference_net:
     type: linear
     units: [200, 200]
     optimizer:
         method: adam
-        alpha: 0.001
+        alpha: 0.0003
         weight_decay: 0.01
 
 generative_net:
@@ -16,7 +16,7 @@ generative_net:
     units: [784, 200]
     optimizer:
         method: adam
-        alpha: 0.001
+        alpha: 0.0003
         weight_decay: 0.01
 
 estimator:
@@ -26,5 +26,5 @@ estimator:
     n_samples: 400
     optimizer:
         method: adam
-        alpha: 0.001
+        alpha: 0.0003
         weight_decay: 0.01

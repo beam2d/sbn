@@ -27,10 +27,6 @@ class LogLikelihoodEvaluator:
         n_samples: Number of samples for computing the Monte Carlo bound.
 
     """
-    trigger = 1, 'epoch'
-    priority = PRIORITY_WRITER
-    default_name = 'validation'
-
     def __init__(
             self,
             iterator: Iterator,

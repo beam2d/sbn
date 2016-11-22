@@ -194,7 +194,7 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
     evaluator = LogLikelihoodEvaluator(
         test_iter, best_model, gpu, config.get('n_test_epochs', 1), config.get('n_test_samples', 50000))
     vb, mcb = evaluator.evaluate()
-    with open(os.path.join(out_path, 'test_result.json')) as f:
+    with open(os.path.join(out_path, 'test_result.json'), 'w') as f:
         json.dump({'iteration': keep_best_model.best_iteration, 'vb': float(vb), 'mcb': float(mcb)}, f)
     if verbose:
         print('...finished')

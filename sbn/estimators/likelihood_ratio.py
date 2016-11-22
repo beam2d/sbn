@@ -61,20 +61,6 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
 
         self._n_samples = n_samples
 
-    def to_cpu(self) -> None:
-        self.c = cuda.to_cpu(self.c)
-        if self.v is not None:
-            self.v = cuda.to_cpu(self.v)
-        if self.baseline_models is not None:
-            self.baseline_models.to_cpu()
-
-    def to_gpu(self, device=None) -> None:
-        self.c = cuda.to_gpu(self.c, device)
-        if self.v is not None:
-            self.v = cuda.to_gpu(self.v, device)
-        if self.baseline_models is not None:
-            self.baseline_models.to_gpu(device)
-
     def estimate_gradient(self, x: Variable) -> None:
         xp = cuda.get_array_module(x.data)
         K = self._n_samples

@@ -75,8 +75,7 @@ class LogLikelihoodEvaluator:
 
         vb_mean = vb_sum / vb_count
         mcb_mean = mcb_sum / mcb_count
-        # Negate to make them bounds of the log likelihood (instead of those of the NEGATIVE log likelihood)
-        return -vb_mean, -mcb_mean
+        return vb_mean, mcb_mean
 
 
 def evaluate_log_likelihood(

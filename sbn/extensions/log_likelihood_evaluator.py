@@ -53,12 +53,12 @@ class LogLikelihoodEvaluator:
         mcb_sum = 0
         mcb_count = 0
 
+        K = self._n_samples
         with no_backprop_mode():
             for epoch in range(self._n_epochs):
                 iterator = copy.copy(self._iterator)
                 for batch in iterator:
                     B = len(batch)
-                    K = self._n_samples
 
                     x = concat_examples(batch, self._device)
                     x = x.repeat(K, axis=0)

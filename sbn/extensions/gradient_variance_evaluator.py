@@ -6,7 +6,7 @@ from chainer.dataset import concat_examples, Iterator
 from chainer.training import make_extension, PRIORITY_WRITER, Trainer
 
 from sbn.gradient_estimator import GradientEstimator
-from sbn.util import Array
+from sbn.util import Array, KahanSum
 
 
 __all__ = ['GradientVarianceEvaluator', 'evaluate_gradient_variance']
@@ -98,21 +98,13 @@ def evaluate_gradient_variance(
         name = get_name()
 
         rep = {}
-        s = 0
-        c = 0
-        count = 0
-        # Compensated summation algorithm. See https://en.wikipedia.org/wiki/Kahan_summation_algorithm.
+        ks = KahanSum()
         for k, v in var.items():
             vsum = v.sum()
-            y = vsum - c
-            t = s + y
-            c = (t - s) - y
-            s = t
-
-            count += v.size
+            ks.add(vsum, v.size)
             rep[name + k] = vsum / v.size
 
-        rep[name + '/mean'] = s / count
+        rep[name + '/mean'] = ks.mean
         report(rep)
 
     def get_name() -> str:

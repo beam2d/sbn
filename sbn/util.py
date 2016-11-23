@@ -5,7 +5,7 @@ from chainer import cuda
 import numpy as np
 
 
-__all__ = ['Array', 'cached_property']
+__all__ = ['Array', 'cached_property', 'KahanSum']
 
 
 # Type hinting utilities
@@ -30,3 +30,29 @@ def cached_property(meth: Callable[[Any], Any]):
         return ret
 
     return property(method)
+
+
+# Kahan summation algorithm (see https://en.wikipedia.org/wiki/Kahan_summation_algorithm)
+class KahanSum:
+    """Kahan summation algorithm.
+
+    This class implements Kahan summation algorithm (https://en.wikipedia.org/wiki/Kahan_summation_algorithm). It
+    computes summation of a stream of values with larger precision than each scalar.
+
+    """
+    def __init__(self):
+        self.sum = 0.
+        self.c = 0.
+        self.count = 0
+
+    def add(self, value, count: int=1) -> None:
+        y = value - self.c
+        t = self.sum + y
+        self.c = (t - self.sum) - y
+        self.sum = t
+
+        self.count += count
+
+    @property
+    def mean(self):
+        return self.sum / self.count

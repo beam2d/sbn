@@ -62,8 +62,8 @@ class LogLikelihoodEvaluator:
                     vb = model.compute_variational_bound(zs, ps)
                     mcb = model.compute_monte_carlo_bound(vb, K)
 
-                    vb_sum.add(vb)
-                    mcb_sum.add(mcb)
+                    vb_sum.add(vb.sum(), B * K)
+                    mcb_sum.add(mcb.sum(), B)
 
         return vb_sum.mean, mcb_sum.mean
 

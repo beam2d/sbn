@@ -5,7 +5,7 @@ from chainer import no_backprop_mode, report
 from chainer.dataset import concat_examples, Iterator
 from chainer.training import Extension, make_extension, PRIORITY_WRITER, Trainer
 
-from sbn.util import Array
+from sbn.util import Array, KahanSum
 from sbn.variational_model import VariationalModel
 
 
@@ -44,10 +44,8 @@ class LogLikelihoodEvaluator:
     def evaluate(self) -> Tuple[Array, Array]:
         model = self._target
 
-        vb_sum = 0
-        vb_count = 0
-        mcb_sum = 0
-        mcb_count = 0
+        vb_sum = KahanSum()
+        mcb_sum = KahanSum()
 
         K = self._n_samples
         with no_backprop_mode():
@@ -64,14 +62,10 @@ class LogLikelihoodEvaluator:
                     vb = model.compute_variational_bound(zs, ps)
                     mcb = model.compute_monte_carlo_bound(vb, K)
 
-                    vb_sum += vb.sum()
-                    vb_count += B * K
-                    mcb_sum += mcb.sum()
-                    mcb_count += B
+                    vb_sum.add(vb)
+                    mcb_sum.add(mcb)
 
-        vb_mean = vb_sum / vb_count
-        mcb_mean = mcb_sum / mcb_count
-        return vb_mean, mcb_mean
+        return vb_sum.mean, mcb_sum.mean
 
 
 def evaluate_log_likelihood(

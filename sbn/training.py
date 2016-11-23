@@ -156,12 +156,13 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 
     best_model = copy.deepcopy(model)
     keep_best_model = KeepBestModel(model, best_model, 'validation/mcb')
-    trainer.extend(keep_best_model)
+    trainer.extend(keep_best_model, trigger=eval_interval)
 
     report_training_time(trainer)
 
     snapshot_interval = config.get('snapshot_interval', 1000000), 'iteration'
     trainer.extend(snapshot(), trigger=snapshot_interval)
+    trainer.extend(snapshot(filename='last_snapshot'), trigger=eval_interval, name='latest_state_snapshot')
     trainer.extend(snapshot_object(best_model, 'best_model_iter_{.updater.iteration}'), trigger=snapshot_interval)
 
     trainer.extend(LogReport(trigger=eval_interval))

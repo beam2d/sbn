@@ -3,7 +3,7 @@ from typing import Callable, Tuple
 
 from chainer import no_backprop_mode, report
 from chainer.dataset import concat_examples, Iterator
-from chainer.training import Extension, make_extension, PRIORITY_WRITER, Trainer
+from chainer.training import make_extension, PRIORITY_WRITER, Trainer
 
 from sbn.util import Array, KahanSum
 from sbn.variational_model import VariationalModel

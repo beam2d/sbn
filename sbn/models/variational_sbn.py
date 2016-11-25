@@ -1,6 +1,6 @@
 from typing import Optional, Sequence, Tuple
 
-from chainer import AbstractSerializer, ChainList, cuda, Link, Variable
+from chainer import AbstractSerializer, ChainList, cuda, Link, no_backprop_mode, Variable
 import chainer.functions as F
 
 from sbn.random_variable import RandomVariable, SigmoidBernoulliVariable
@@ -104,6 +104,43 @@ class VariationalSBN(VariationalModel):
             current = current + p.log_prob.data - q.log_prob.data
             signals.append(current)
         return tuple(reversed(signals))
+
+    def compute_local_expectation(
+            self,
+            x: Variable,
+            zs: Sequence[RandomVariable],
+            local_signal: Array,
+            layer: int
+    ) -> Array:
+        if layer > 0:
+            x = zs[layer - 1].sample
+        z_flipped = zs[layer].make_flips()
+        B = len(x.data)
+        H = zs[layer].sample.shape[1]
+        xp = cuda.get_array_module(x.data)
+
+        vb_flipped = 0
+        with no_backprop_mode():
+            for enc, dec, z in zip(self.inference_net[layer:], self.generative_net[layer:], zs[layer:]):
+                if z is not zs[layer]:  # skip the first layer
+                    logit = F.reshape(enc(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
+                    noise = xp.broadcast_to(z.noise[:, None], logit.shape)
+                    z_flipped = SigmoidBernoulliVariable(F.reshape(logit, (B, H, -1)), noise=noise)
+                # compute the vb term
+                x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
+                x_broadcast = F.broadcast_to(F.reshape(x, (B, 1, -1)), x_logit.shape)
+                p_x = SigmoidBernoulliVariable(x_logit, x_broadcast)
+                vb_flipped += p_x.log_prob.data - z_flipped.log_prob.data
+                x = z.sample
+
+            # prior
+            prior = F.broadcast_to(self.generative_net.prior[None], z_flipped.sample.shape)
+            vb_flipped += SigmoidBernoulliVariable(prior, z_flipped.sample).log_prob.data
+
+        z = zs[layer].sample.data
+        mu = F.sigmoid(zs[layer].logit)
+        s = F.where(z.astype('?'), mu, 1 - mu)
+        return s * local_signal[:, None] + (1 - s) * vb_flipped
 
     def serialize(self, serializer: AbstractSerializer) -> None:
         self.generative_net.serialize(serializer['generative_net'])

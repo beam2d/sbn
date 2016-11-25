@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Tuple
 
 from chainer import cuda, Variable
 import chainer.functions as F
@@ -45,6 +45,30 @@ class RandomVariable:
         """
         raise NotImplementedError
 
+    def make_flips(self):
+        """Creates an array of random variables with each element flipped.
+
+        This method returns a new RandomVariable of the shape ``(B, C, D)``, where B is the batch size, C the number of
+        flips, and D the dimensionality of each example. The length C depends on the type of the random variable.
+
+        Returns:
+            RandomVariable: Sample with flipped values.
+
+        """
+        raise NotImplementedError
+
+    def reshape(self, *shape: int):
+        """Returns a reshaped random variable.
+
+        Args:
+            shape: New shape.
+
+        Returns:
+            Random variable of the new shape.
+
+        """
+        raise NotImplementedError
+
 
 class ConstantVariable(RandomVariable):
 
@@ -77,6 +101,9 @@ class ConstantVariable(RandomVariable):
     @cached_property
     def zeros(self) -> Variable:
         return Variable(self._xp.zeros(len(self._sample.data), dtype=self._sample.dtype))
+
+    def reshape(self, shape: Tuple[int, ...]):
+        return ConstantVariable(self._sample.reshape(shape))
 
 
 class SigmoidBernoulliVariable(RandomVariable):
@@ -120,13 +147,13 @@ class SigmoidBernoulliVariable(RandomVariable):
     @cached_property
     def log_prob(self) -> Variable:
         t = self.sample
-        return F.sum(t * self.logit - self.softplus_logit, axis=1)
+        return F.sum(t * self.logit - self.softplus_logit, axis=-1)
 
     @cached_property
     def entropy(self) -> Variable:
         # TODO(beam2d): Unify the kernels.
         t = self.mean
-        return F.sum(self.softplus_logit - t * self.logit, axis=1)
+        return F.sum(self.softplus_logit - t * self.logit, axis=-1)
 
     @cached_property
     def softplus_logit(self) -> Variable:
@@ -137,3 +164,20 @@ class SigmoidBernoulliVariable(RandomVariable):
         mean = self.mean
         xp = cuda.get_array_module(mean.data)
         return xp.random.rand(*mean.shape).astype(mean.dtype)
+
+    def make_flips(self):
+        # Create D copies of a (B, D) binary array, where the (*, i)-th elements are flipped in the i-th copy.
+        # The returned variable is of shape (B, D, D).
+        z = self.sample.data
+        z = z[:, None].repeat(z.shape[1], axis=1)
+        z_diag = z.diagonal(axis1=1, axis2=2)
+        z_diag.flags.writeable = True
+        z_diag[...] = 1 - z_diag  # flip
+
+        xp = cuda.get_array_module(z)
+        logit = F.broadcast_to(self.logit[:, None], z.shape)
+        noise = xp.broadcast_to(self.noise[:, None], z.shape)
+        return SigmoidBernoulliVariable(logit, noise=noise)
+
+    def reshape(self, *shape: int):
+        return SigmoidBernoulliVariable(F.reshape(self.logit, shape), F.reshape(self.sample, shape))

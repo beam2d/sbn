@@ -50,7 +50,7 @@ class VariationalModel:
         raise NotImplementedError
 
     def infer(self, x: Variable) -> Tuple[RandomVariable, ...]:
-        """Infers latent variables with the approximate posterior model given the input configuration x.
+        """Infers latent variables of the approximate posterior model given the input configuration x.
 
         The returned variables follow the topological order of the directed graphical model.
 
@@ -63,7 +63,11 @@ class VariationalModel:
         """
         raise NotImplementedError
 
-    def compute_generative_factors(self, x: Variable, zs: Sequence[RandomVariable]) -> Tuple[RandomVariable, ...]:
+    def compute_generative_factors(
+            self,
+            x: Variable,
+            zs: Sequence[RandomVariable],
+    ) -> Tuple[RandomVariable, ...]:
         """Computes all conditionals of the generative model with fully-given configurations.
 
         Given configurations of all variables, this method computes all conditionals of the generative model.
@@ -155,6 +159,32 @@ class VariationalModel:
 
         Returns:
             Local signals of latent variables. The i-th element represents the local signal of the i-th variable.
+
+        """
+        raise NotImplementedError
+
+    def compute_local_expectation(
+            self,
+            x: Variable,
+            zs: Sequence[RandomVariable],
+            local_signal: Array,
+            layer: int
+    ) -> Variable:
+        """Computes the local signal of the specified layer marginalized over each variable.
+
+        This method computes local expectation of the variational bound for each variable of ``zs[layer]``. It is done
+        by flipping each element of zs[layer] and simulate zs[layer+1:] given flipped configurations. The simulation
+        follows the reparameterization trick for discrete variables, i.e., all latent variables of zs[layer+1:] are
+        simulated with the fixed noise.
+
+        Args:
+            x: Input variable.
+            zs: Inferred latent variables.
+            local_signal: Local signal of the layer.
+            layer: Which layer to compute the local expectations.
+
+        Returns:
+            Variable of the same shape as ``zs[layer]``. It can be backprop-ed through the logit of the variable.
 
         """
         raise NotImplementedError

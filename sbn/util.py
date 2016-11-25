@@ -1,11 +1,11 @@
 import functools
-from typing import Any, Callable, Union
+from typing import Any, Callable, Sequence, Union
 
-from chainer import cuda
+from chainer import cuda, Function, Variable
 import numpy as np
 
 
-__all__ = ['Array', 'cached_property', 'KahanSum']
+__all__ = ['Array', 'backprop_from_all', 'cached_property', 'KahanSum']
 
 
 # Type hinting utilities
@@ -56,3 +56,22 @@ class KahanSum:
     @property
     def mean(self):
         return self.sum / self.count
+
+
+# Backprop from all variables
+class BackpropFromAll(Function):
+
+    def __init__(self, coeff: float=1) -> None:
+        self._coeff = coeff
+
+    def forward(self, inputs):
+        xp = cuda.get_array_module(inputs[0])
+        return xp.array(0, dtype='f'),
+
+    def backward(self, inputs, grad_outputs):
+        xp = cuda.get_array_module(inputs[0])
+        return tuple(xp.full_like(x, self._coeff) for x in inputs)
+
+
+def backprop_from_all(xs: Sequence[Variable], coeff: float=1) -> Variable:
+    return BackpropFromAll(coeff)(*xs)

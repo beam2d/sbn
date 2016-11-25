@@ -15,7 +15,7 @@ import numpy as np
 import yaml
 
 from sbn.datasets import get_offline_binary_mnist, get_online_binary_mnist
-from sbn.estimators import LikelihoodRatioEstimator
+from sbn.estimators import DiscreteReparameterizationEstimator, LikelihoodRatioEstimator
 from sbn.extensions import evaluate_gradient_variance, evaluate_log_likelihood, KeepBestModel, report_training_time
 from sbn.extensions import LogLikelihoodEvaluator
 from sbn.gradient_estimator import GradientEstimator
@@ -236,6 +236,8 @@ def _build_estimator(config: dict, n_layers: int, model: VariationalModel) -> Gr
         n_samples = config.get('n_samples', 1)
         return LikelihoodRatioEstimator(
             model, baseline_model, config.get('alpha', 0.8), config.get('variance_normalization', False), n_samples)
+    elif method == 'discrete_reparameterization':
+        return DiscreteReparameterizationEstimator(model)
     else:
         raise ValueError('unknown estimator type: "{}"'.format(method))
 

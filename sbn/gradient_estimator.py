@@ -1,8 +1,7 @@
 from typing import Optional
 
-from chainer import Link
+from chainer import Link, Variable
 
-from sbn.util import Array
 
 __all__ = ['GradientEstimator']
 
@@ -17,7 +16,7 @@ class GradientEstimator:
     """
     def to_cpu(self) -> None:
         """Migrates all parameters and arrays in the estimator to CPU."""
-        raise NotImplementedError
+        pass
 
     def to_gpu(self, device=None) -> None:
         """Migrates all parameters and arrays in the estimator to GPU.
@@ -26,9 +25,9 @@ class GradientEstimator:
             device: Device specifier.
 
         """
-        raise NotImplementedError
+        pass
 
-    def estimate_gradient(self, x: Array) -> None:
+    def estimate_gradient(self, x: Variable) -> None:
         """Estimates a gradient w.r.t. a given input array.
 
         This method computes a gradient of an underlying belief net model with given input ``x``. The gradient is
@@ -48,4 +47,4 @@ class GradientEstimator:
         Some estimators have their own parameters. This method returns a link if such parameters exist.
 
         """
-        raise NotImplementedError
+        return None

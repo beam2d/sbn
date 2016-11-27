@@ -1,7 +1,6 @@
-from chainer import cuda, Variable
+from chainer import functions as F, Variable
 
 from sbn.gradient_estimator import GradientEstimator
-from sbn.util import backprop_from_all
 from sbn.variational_model import VariationalModel
 
 
@@ -22,14 +21,14 @@ class DiscreteReparameterizationEstimator(GradientEstimator):
         model = self._model
         zs = model.infer(x)
         ps = model.compute_generative_factors(x, zs)
-
-        local_signals = model.compute_local_signals(zs, ps)
+        direct_signal = F.sum(F.vstack([p.log_prob for p in ps])) + F.sum(F.vstack([q.entropy for q in zs]))
 
         # Compute the reparameterized local expectations
+        local_signals = model.compute_local_marginal_signals(zs, ps)
         local_expectations = [model.compute_local_expectation(x, zs, signal, l)
                               for l, signal in enumerate(local_signals)]
+        reparam_signal = F.sum(F.vstack([F.sum(le) for le in local_expectations]))
 
         # Backprop errors from ps and each local expectation.
-        signal = backprop_from_all([p.log_prob for p in ps] + local_expectations, -1)
         model.cleargrads()
-        signal.backward()
+        (-direct_signal - reparam_signal).backward()

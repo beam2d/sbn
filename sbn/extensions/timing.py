@@ -15,7 +15,7 @@ class Timing(Extension):
     pure elapsed time of training by ``TrainingTime`` extension.
 
     """
-    priority = 0
+    priority = -1000
     invoke_before_training = True
 
     def __init__(self):

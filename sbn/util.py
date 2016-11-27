@@ -56,22 +56,3 @@ class KahanSum:
     @property
     def mean(self):
         return self.sum / self.count
-
-
-# Backprop from all variables
-class BackpropFromAll(Function):
-
-    def __init__(self, coeff: float=1) -> None:
-        self._coeff = coeff
-
-    def forward(self, inputs):
-        xp = cuda.get_array_module(inputs[0])
-        return xp.array(0, dtype='f'),
-
-    def backward(self, inputs, grad_outputs):
-        xp = cuda.get_array_module(inputs[0])
-        return tuple(xp.full_like(x, self._coeff) for x in inputs)
-
-
-def backprop_from_all(xs: Sequence[Variable], coeff: float=1) -> Variable:
-    return BackpropFromAll(coeff)(*xs)

@@ -101,8 +101,26 @@ class VariationalSBN(VariationalModel):
         signals = []
         current = ps[-1].log_prob.data
         for q, p in zip(reversed(zs), reversed(ps[:-1])):
-            current = current + p.log_prob.data - q.log_prob.data
+            current = current + p.log_prob.data - q.log_prob.data  # do not use += here
             signals.append(current)
+        return tuple(reversed(signals))
+
+    def compute_local_marginal_signals(
+            self,
+            zs: Sequence[SigmoidBernoulliVariable],
+            ps: Sequence[SigmoidBernoulliVariable]
+    ) -> Tuple[Array, ...]:
+        signals = []
+        current = SigmoidBernoulliVariable(ps[-1].logit, zs[-1].mean).log_prob.data
+        for q, p in zip(reversed(zs), reversed(ps[:-1])):
+            current += p.log_prob.data
+            signals.append(current)
+            if q is not zs[0]:  # skip the last redundant addition
+                current = current + q.entropy.data  # do not use += here
+            # current += p.log_prob.data
+            # signals.append(current - q.log_prob.data)
+            # if q is not zs[0]:  # skip the last redundant addition
+            #     current += q.entropy.data
         return tuple(reversed(signals))
 
     def compute_local_expectation(
@@ -114,33 +132,42 @@ class VariationalSBN(VariationalModel):
     ) -> Array:
         if layer > 0:
             x = zs[layer - 1].sample
-        z_flipped = zs[layer].make_flips()
         B = len(x.data)
         H = zs[layer].sample.shape[1]
         xp = cuda.get_array_module(x.data)
 
-        vb_flipped = 0
-        with no_backprop_mode():
-            for enc, dec, z in zip(self.inference_net[layer:], self.generative_net[layer:], zs[layer:]):
-                if z is not zs[layer]:  # skip the first layer
-                    logit = F.reshape(enc(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
-                    noise = xp.broadcast_to(z.noise[:, None], logit.shape)
-                    z_flipped = SigmoidBernoulliVariable(F.reshape(logit, (B, H, -1)), noise=noise)
-                # compute the vb term
-                x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
-                x_broadcast = F.broadcast_to(F.reshape(x, (B, 1, -1)), x_logit.shape)
-                p_x = SigmoidBernoulliVariable(x_logit, x_broadcast)
-                vb_flipped += p_x.log_prob.data - z_flipped.log_prob.data
-                x = z.sample
+        # first layer
+        z_flipped = zs[layer].make_flips()
+        dec = self.generative_net[layer]
+        x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
+        x_broadcast = F.broadcast_to(F.reshape(x, (B, 1, -1)), x_logit.shape)
+        p_x = SigmoidBernoulliVariable(x_logit, x_broadcast)
+        vb_flipped = p_x.log_prob.data
 
-            # prior
-            prior = F.broadcast_to(self.generative_net.prior[None], z_flipped.sample.shape)
-            vb_flipped += SigmoidBernoulliVariable(prior, z_flipped.sample).log_prob.data
+        # second to last layers
+        x_current = z_flipped.sample
+        for enc, dec, z in zip(self.inference_net[layer + 1:], self.generative_net[layer + 1:], zs[layer + 1:]):
+            logit_flipped = F.reshape(enc(x_current.data.reshape(B * H, -1)), (B, H, -1))
+            noise = xp.broadcast_to(z.noise[:, None], logit_flipped.shape)
+            z_flipped = SigmoidBernoulliVariable(F.reshape(logit_flipped, (B, H, -1)), noise=noise)
+
+            x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
+            p_x = SigmoidBernoulliVariable(x_logit, x_current)
+            vb_flipped += p_x.log_prob.data
+            vb_flipped += z_flipped.entropy.data
+
+            x_current = z_flipped.sample
+
+        # prior
+        prior = F.broadcast_to(self.generative_net.prior[None], x_current.shape)
+        p_z = SigmoidBernoulliVariable(prior, z_flipped.mean)
+        vb_flipped += p_z.log_prob.data
 
         z = zs[layer].sample.data
-        mu = F.sigmoid(zs[layer].logit)
-        s = F.where(z.astype('?'), mu, 1 - mu)
-        return s * local_signal[:, None] + (1 - s) * vb_flipped
+        mu = zs[layer].mean
+        sign = xp.where(z, z, -1)
+        local_signal_broadcast = xp.broadcast_to(local_signal[:, None], mu.shape)
+        return sign * (mu * (local_signal_broadcast - vb_flipped) + vb_flipped)
 
     def serialize(self, serializer: AbstractSerializer) -> None:
         self.generative_net.serialize(serializer['generative_net'])

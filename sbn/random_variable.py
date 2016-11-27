@@ -136,7 +136,6 @@ class SigmoidBernoulliVariable(RandomVariable):
 
     @cached_property
     def mean(self) -> Variable:
-        # TODO(beam2d): Return a raw array if logit is a raw array
         return F.sigmoid(self.logit)
 
     @cached_property
@@ -146,14 +145,12 @@ class SigmoidBernoulliVariable(RandomVariable):
 
     @cached_property
     def log_prob(self) -> Variable:
-        t = self.sample
-        return F.sum(t * self.logit - self.softplus_logit, axis=-1)
+        return F.sum(self.sample * self.logit - self.softplus_logit, axis=-1)
 
     @cached_property
     def entropy(self) -> Variable:
         # TODO(beam2d): Unify the kernels.
-        t = self.mean
-        return F.sum(self.softplus_logit - t * self.logit, axis=-1)
+        return F.sum(self.softplus_logit - self.mean * self.logit, axis=-1)
 
     @cached_property
     def softplus_logit(self) -> Variable:
@@ -177,7 +174,7 @@ class SigmoidBernoulliVariable(RandomVariable):
         xp = cuda.get_array_module(z)
         logit = F.broadcast_to(self.logit[:, None], z.shape)
         noise = xp.broadcast_to(self.noise[:, None], z.shape)
-        return SigmoidBernoulliVariable(logit, noise=noise)
+        return SigmoidBernoulliVariable(logit, Variable(z), noise)
 
     def reshape(self, *shape: int):
         return SigmoidBernoulliVariable(F.reshape(self.logit, shape), F.reshape(self.sample, shape))

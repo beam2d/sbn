@@ -163,6 +163,31 @@ class VariationalModel:
         """
         raise NotImplementedError
 
+    def compute_local_marginal_signals(
+            self,
+            zs: Sequence[RandomVariable],
+            ps: Sequence[RandomVariable]
+    ) -> Tuple[Array, ...]:
+        """Computes the local signal of each latent variable with locally marginalized entropies.
+
+        This method computes a local signal for each latent variable. The variational bound is written by a summation
+        of many terms, and a local signal of a latent variable is the partial sum of these terms that depend on the
+        variable.
+
+        In this method, each term is locally marginalized as much as possible. For example, the entropy of each layer
+        is computed analytically if possible. If a locally-marginalized term does not depend on the latent variable,
+        the term is not included in its local signal (e.g. entropy term).
+
+        Args:
+            zs: Inferred latent variables.
+            ps: Factors of generative models.
+
+        Returns:
+            Local signals of latent variables. The i-th element represents the local signal of the i-th variable.
+
+        """
+        raise NotImplementedError
+
     def compute_local_expectation(
             self,
             x: Variable,
@@ -177,10 +202,13 @@ class VariationalModel:
         follows the reparameterization trick for discrete variables, i.e., all latent variables of zs[layer+1:] are
         simulated with the fixed noise.
 
+        Note that the local expectation is taken against the locally-marginalized signals. In particular, it does not
+        include the entropy term of zs[layer] if it is locally marginalized.
+
         Args:
             x: Input variable.
             zs: Inferred latent variables.
-            local_signal: Local signal of the layer.
+            local_signal: Locally-marginalized signal of the layer.
             layer: Which layer to compute the local expectations.
 
         Returns:

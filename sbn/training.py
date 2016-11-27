@@ -158,7 +158,7 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
     keep_best_model = KeepBestModel(model, best_model, 'validation/mcb')
     trainer.extend(keep_best_model, trigger=eval_interval)
 
-    report_training_time(trainer)
+    report_training_time(trainer, eval_interval)
 
     snapshot_interval = config.get('snapshot_interval', 1000000), 'iteration'
     trainer.extend(snapshot(), trigger=snapshot_interval)

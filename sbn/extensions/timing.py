@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Callable, Optional
 
 from chainer import AbstractSerializer, report
-from chainer.training import Extension, Trainer
+from chainer.training import Extension, get_trigger, Trainer
 
 
 __all__ = ['Timing', 'TrainingTime', 'report_training_time']
@@ -38,26 +38,29 @@ class TrainingTime(Extension):
     Args:
         timing: Timing extension used to measure when the last iteration finished. This value is used to measure how
             long it took for the next training iteration.
+        report_at: Trigger to determine when to report the training time.
 
     """
     priority = 10000
     default_name = 'training_time'
 
-    def __init__(self, timing: Timing) -> None:
+    def __init__(self, timing: Timing, report_at) -> None:
         self._timing = timing
+        self._report_at = get_trigger(report_at)
         self._elapsed_time = 0
 
     def __call__(self, trainer: Trainer) -> None:
         if self._timing.time is None:
             raise RuntimeError('the last timing is not measured')
         self._elapsed_time += trainer.elapsed_time - self._timing.time
-        report({self.name: self._elapsed_time})
+        if self._report_at(trainer):
+            report({self.name: self._elapsed_time})
 
     def serialize(self, serializer: AbstractSerializer) -> None:
         self._elapsed_time = serializer('_elapsed_time', self._elapsed_time)
 
 
-def report_training_time(trainer: Trainer, key: str='training_time') -> None:
+def report_training_time(trainer: Trainer, report_at, key: str='training_time') -> None:
     """Registers extensions to report training time.
 
     Args:
@@ -67,4 +70,4 @@ def report_training_time(trainer: Trainer, key: str='training_time') -> None:
     """
     timing = Timing()
     trainer.extend(timing)
-    trainer.extend(TrainingTime(timing), name=key)
+    trainer.extend(TrainingTime(timing, report_at), name=key)

@@ -117,10 +117,6 @@ class VariationalSBN(VariationalModel):
             signals.append(current)
             if q is not zs[0]:  # skip the last redundant addition
                 current = current + q.entropy.data  # do not use += here
-            # current += p.log_prob.data
-            # signals.append(current - q.log_prob.data)
-            # if q is not zs[0]:  # skip the last redundant addition
-            #     current += q.entropy.data
         return tuple(reversed(signals))
 
     def compute_local_expectation(
@@ -136,25 +132,20 @@ class VariationalSBN(VariationalModel):
         H = zs[layer].sample.shape[1]
         xp = cuda.get_array_module(x.data)
 
-        # first layer
         z_flipped = zs[layer].make_flips()
-        dec = self.generative_net[layer]
-        x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
-        x_broadcast = F.broadcast_to(F.reshape(x, (B, 1, -1)), x_logit.shape)
-        p_x = SigmoidBernoulliVariable(x_logit, x_broadcast)
-        vb_flipped = p_x.log_prob.data
-
-        # second to last layers
-        x_current = z_flipped.sample
-        for enc, dec, z in zip(self.inference_net[layer + 1:], self.generative_net[layer + 1:], zs[layer + 1:]):
-            logit_flipped = F.reshape(enc(x_current.data.reshape(B * H, -1)), (B, H, -1))
-            noise = xp.broadcast_to(z.noise[:, None], logit_flipped.shape)
-            z_flipped = SigmoidBernoulliVariable(F.reshape(logit_flipped, (B, H, -1)), noise=noise)
+        x_current = F.broadcast_to(F.reshape(x, (B, 1, -1)), (B, H, x.shape[1]))
+        vb_flipped = 0
+        for enc, dec, z in zip(self.inference_net[layer:], self.generative_net[layer:], zs[layer:]):
+            if z is not zs[layer]:  # skip the first layer
+                logit_flipped = F.reshape(enc(x_current.data.reshape(B * H, -1)), (B, H, -1))
+                noise = xp.broadcast_to(z.noise[:, None], logit_flipped.shape)
+                z_flipped = SigmoidBernoulliVariable(F.reshape(logit_flipped, (B, H, -1)), noise=noise)
 
             x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
             p_x = SigmoidBernoulliVariable(x_logit, x_current)
             vb_flipped += p_x.log_prob.data
-            vb_flipped += z_flipped.entropy.data
+            if z is not zs[layer]:  # skip the first layer
+                vb_flipped += z_flipped.entropy.data
 
             x_current = z_flipped.sample
 

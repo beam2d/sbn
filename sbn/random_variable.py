@@ -54,7 +54,7 @@ class RandomVariable:
         """
         raise NotImplementedError
 
-    def make_flips(self):
+    def make_flips(self) -> 'RandomVariable':
         """Creates an array of random variables with each element flipped.
 
         This method returns a new RandomVariable of the shape ``(B, C, D)``, where B is the batch size, C the number of
@@ -139,7 +139,7 @@ class SigmoidBernoulliVariable(RandomVariable):
         xp = cuda.get_array_module(mean.data)
         return xp.random.rand(*mean.shape).astype(mean.dtype)
 
-    def make_flips(self):
+    def make_flips(self) -> 'SigmoidBernoulliVariable':
         # Create D copies of a (B, D) binary array, where the (*, i)-th elements are flipped in the i-th copy.
         # The returned variable is of shape (B, D, D).
         z = self.sample.data

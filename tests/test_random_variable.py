@@ -3,7 +3,7 @@ from unittest import TestCase
 import cupy as cp
 import numpy as np
 
-from sbn import RandomVariable, ConstantVariable, SigmoidBernoulliVariable
+from sbn import RandomVariable, SigmoidBernoulliVariable
 
 
 class TestRandomVariable(TestCase):
@@ -26,25 +26,6 @@ class TestRandomVariable(TestCase):
     def test_entropy(self):
         with self.assertRaises(NotImplementedError):
             _ = self.rv.entropy
-
-
-class TestConstantVariable(TestCase):
-
-    def setUp(self):
-        self.value = np.array([1., 2., 3.])
-        self.cv = ConstantVariable(self.value)
-
-    def test_sample(self):
-        np.testing.assert_array_equal(self.cv.sample.data, self.value)
-
-    def test_log_prob(self):
-        np.testing.assert_array_equal(self.cv.log_prob.data, 0)
-
-    def test_mean(self):
-        np.testing.assert_array_equal(self.cv.mean.data, self.value)
-
-    def test_entropy(self):
-        np.testing.assert_array_equal(self.cv.entropy.data, 0)
 
 
 class TestSigmoidBernoulliVariable(TestCase):

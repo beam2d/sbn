@@ -6,7 +6,7 @@ import chainer.functions as F
 from sbn.util import Array, cached_property
 
 
-__all__ = ['ConstantVariable', 'RandomVariable', 'SigmoidBernoulliVariable']
+__all__ = ['RandomVariable', 'SigmoidBernoulliVariable']
 
 
 class RandomVariable:
@@ -77,42 +77,6 @@ class RandomVariable:
 
         """
         raise NotImplementedError
-
-
-class ConstantVariable(RandomVariable):
-
-    """Random variable representing a constant value.
-
-    Args:
-        value (array): Sampled value.
-
-    """
-    def __init__(self, value: Array) -> None:
-        self._sample = Variable(value)
-        self._xp = cuda.get_array_module(value)
-
-    @property
-    def sample(self) -> Variable:
-        return self._sample
-
-    @property
-    def log_prob(self) -> Variable:
-        return self.zeros
-
-    @property
-    def mean(self) -> Variable:
-        return self._sample
-
-    @property
-    def entropy(self) -> Variable:
-        return self.zeros
-
-    @cached_property
-    def zeros(self) -> Variable:
-        return Variable(self._xp.zeros(len(self._sample.data), dtype=self._sample.dtype))
-
-    def reshape(self, shape: Tuple[int, ...]):
-        return ConstantVariable(self._sample.reshape(shape))
 
 
 class SigmoidBernoulliVariable(RandomVariable):

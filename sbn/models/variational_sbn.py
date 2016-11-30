@@ -137,13 +137,15 @@ class VariationalSBN(VariationalModel):
         z_flipped = z.make_flips()
 
         dec = self.generative_net[layer]
-        p_flipped = F.reshape(dec(F.reshape(z_flipped.sample, (B * H, H))), (B, H, -1))
-        p_term = F.broadcast_to(p.log_prob[:, None], (B, H, p.sample.shape[1]))
+        p_flipped = SigmoidBernoulliVariable(
+            F.reshape(dec(F.reshape(z_flipped.sample, (B * H, H))), (B, H, -1)),
+            F.broadcast_to(p.sample[:, None], (B, H, p.sample.shape[1])))
+        p_term = F.broadcast_to(p.log_prob[:, None], (B, H))
 
         p_z = ps[layer + 1]
         p_z_flipped = SigmoidBernoulliVariable(p_z.logit, 1 - p_z.sample)
-        z_coeff = p_term.log_prob + p_z.elementwise_log_prob - z.elementwise_log_prob
-        z_flipped_coeff = p_flipped.log_prob + p_z_flipped.log_prob - z_all_flipped.elementwise_log_prob
+        z_coeff = p_term + p_z.elementwise_log_prob - z.elementwise_log_prob
+        z_flipped_coeff = p_flipped.log_prob + p_z_flipped.elementwise_log_prob - z_all_flipped.elementwise_log_prob
 
         if layer == len(zs) - 1:  # last layer
             localexp = z_coeff.data * z.mean + z_flipped_coeff.data * (1 - z.mean)
@@ -153,7 +155,7 @@ class VariationalSBN(VariationalModel):
             H_y = y.sample.shape[1]
             y_flipped = SigmoidBernoulliVariable(F.reshape(enc(F.reshape(z_flipped.sample, (B * H, H))), (B, H, -1)),
                                                  F.broadcast_to(y.sample[:, None], (B, H, H_y)))
-            z_coeff -= F.broadcast_to(y.log_prob[:, None], (B, H, y.sample.shape[1]))
+            z_coeff -= F.broadcast_to(y.log_prob[:, None], (B, H))
             z_flipped_coeff -= y_flipped.log_prob
             coeff = F.sigmoid(z.elementwise_log_prob + F.broadcast_to(y.log_prob[:, None], (B, H))
                               - z_all_flipped.elementwise_log_prob - y_flipped.log_prob)

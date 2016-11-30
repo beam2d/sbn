@@ -1,2 +1,3 @@
 from sbn.estimators.discrete_reparameterization import DiscreteReparameterizationEstimator
 from sbn.estimators.likelihood_ratio import LikelihoodRatioEstimator
+from sbn.estimators.local_expectation_gradient import LocalExpectationGradientEstimator

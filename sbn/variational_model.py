@@ -192,10 +192,34 @@ class VariationalModel:
             self,
             x: Variable,
             zs: Sequence[RandomVariable],
+            ps: Sequence[RandomVariable],
+            layer: int
+    ) -> Variable:
+        """Computes the local expectation of the specified layer.
+
+        This method compute the local expectation of the variational bound for each variable of ``zs[layer]``. it is
+        used for the local expectation gradient estimator.
+
+        Args:
+            x: Input variable.
+            zs: Inferred latent variables.
+            ps: Factors of generative models.
+            layer: Which layer to compute the local expectation.
+
+        Returns:
+            Variable of the same shape as ``zs[layer]``. It can be backprop-ed through the logit of the variable.
+
+        """
+        raise NotImplementedError
+
+    def compute_reparameterized_local_expectation(
+            self,
+            x: Variable,
+            zs: Sequence[RandomVariable],
             local_signal: Array,
             layer: int
     ) -> Variable:
-        """Computes the local signal of the specified layer marginalized over each variable.
+        """Computes the reparameterized local signal of the specified layer marginalized over each variable.
 
         This method computes local expectation of the variational bound for each variable of ``zs[layer]``. It is done
         by flipping each element of zs[layer] and simulate zs[layer+1:] given flipped configurations. The simulation
@@ -209,7 +233,7 @@ class VariationalModel:
             x: Input variable.
             zs: Inferred latent variables.
             local_signal: Locally-marginalized signal of the layer.
-            layer: Which layer to compute the local expectations.
+            layer: Which layer to compute the reparameterized local expectations.
 
         Returns:
             Variable of the same shape as ``zs[layer]``. It can be backprop-ed through the logit of the variable.

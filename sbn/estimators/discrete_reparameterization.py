@@ -25,7 +25,7 @@ class DiscreteReparameterizationEstimator(GradientEstimator):
 
         # Compute the reparameterized local expectations
         local_signals = model.compute_local_marginal_signals(zs, ps)
-        local_expectations = [model.compute_local_expectation(x, zs, signal, l)
+        local_expectations = [model.compute_reparameterized_local_expectation(x, zs, signal, l)
                               for l, signal in enumerate(local_signals)]
         reparam_signal = F.sum(F.vstack([F.sum(le) for le in local_expectations]))
 

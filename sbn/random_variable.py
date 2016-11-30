@@ -32,6 +32,15 @@ class RandomVariable:
         raise NotImplementedError
 
     @property
+    def elementwise_log_prob(self) -> Variable:
+        """Log probability of each variable.
+
+        This variable is a (B, H) matrix where B is the mini-batch size and H the number of variables.
+
+        """
+        raise NotImplementedError
+
+    @property
     def mean(self) -> Variable:
         """Mean value of the distribution."""
         raise NotImplementedError
@@ -145,7 +154,11 @@ class SigmoidBernoulliVariable(RandomVariable):
 
     @cached_property
     def log_prob(self) -> Variable:
-        return F.sum(self.sample * self.logit - self.softplus_logit, axis=-1)
+        return F.sum(self.elementwise_log_prob, axis=-1)
+
+    @cached_property
+    def elementwise_log_prob(self) -> Variable:
+        return self.sample * self.logit - self.softplus_logit
 
     @cached_property
     def entropy(self) -> Variable:

@@ -1,6 +1,8 @@
 from unittest import TestCase
 
-from sbn.util import cached_property
+import numpy as np
+
+from sbn.util import cached_property, KahanSum
 
 
 class TestCachedProperty(TestCase):
@@ -23,3 +25,22 @@ class TestCachedProperty(TestCase):
         self.assertEqual(b.x, 2)
         self.assertEqual(b.x, 2)
         self.assertEqual(b._x, 2)
+
+
+class TestKahanSum(TestCase):
+
+    def test_scalar_sum(self):
+        arr = np.random.rand(1000)
+        kahan = KahanSum()
+        for x in arr:
+            kahan.add(x)
+        self.assertAlmostEqual(kahan.sum, arr.sum())
+        self.assertAlmostEqual(kahan.mean, arr.mean())
+
+    def test_array_sum(self):
+        arr = np.random.rand(1000, 4, 5)
+        kahan = KahanSum()
+        for x in arr:
+            kahan.add(x)
+        np.testing.assert_almost_equal(kahan.sum, arr.sum(axis=0))
+        np.testing.assert_almost_equal(kahan.mean, arr.mean(axis=0))

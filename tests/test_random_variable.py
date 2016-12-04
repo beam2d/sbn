@@ -16,6 +16,14 @@ class TestRandomVariable(TestCase):
         with self.assertRaises(NotImplementedError):
             _ = self.rv.sample
 
+    def test_prob(self):
+        with self.assertRaises(NotImplementedError):
+            _ = self.rv.prob
+
+    def test_elementwise_prob(self):
+        with self.assertRaises(NotImplementedError):
+            _ = self.rv.elementwise_prob
+
     def test_log_prob(self):
         with self.assertRaises(NotImplementedError):
             _ = self.rv.log_prob
@@ -51,6 +59,20 @@ class TestSigmoidBernoulliVariable(TestCase):
         z = self.rv.sample.data
         self.xp.testing.assert_array_equal(self.rv.sample.data, z)  # cached
         self.assertTrue(((z == 0) | (z == 1)).all())
+
+    def test_prob(self):
+        xp = self.xp
+        z = self.rv.sample.data
+        mu = self.rv.mean.data
+        p = z * mu + (1 - z) * (1 - mu)
+        xp.testing.assert_allclose(self.rv.prob.data, p.prod(axis=1), rtol=1e-5)
+
+    def test_elementwise_prob(self):
+        xp = self.xp
+        z = self.rv.sample.data
+        mu = self.rv.mean.data
+        p = z * mu + (1 - z) * (1 - mu)
+        xp.testing.assert_allclose(self.rv.elementwise_prob.data, p, rtol=1e-5)
 
     def test_log_prob(self):
         xp = self.xp

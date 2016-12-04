@@ -25,7 +25,7 @@ class LocalExpectationGradientEstimator(GradientEstimator):
         ps = model.compute_generative_factors(x, zs)
         p_terms = F.sum(F.vstack([p.log_prob for p in ps]))
 
-        local_expectations = [model.compute_local_expectation(x, zs, ps, i) for i in range(len(zs))]
+        local_expectations = [model.compute_local_expectation(x, zs, ps, l) for l in range(len(zs))]
         legrad_signal = sum(F.sum(le) for le in local_expectations)
 
         model.cleargrads()

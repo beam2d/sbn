@@ -21,12 +21,10 @@ class DiscreteReparameterizationEstimator(GradientEstimator):
         model = self._model
         zs = model.infer(x)
         ps = model.compute_generative_factors(x, zs)
-        direct_signal = F.sum(F.vstack([p.log_prob for p in ps])) + F.sum(F.vstack([q.entropy for q in zs]))
+        direct_signal = F.sum(F.vstack([p.log_prob for p in ps]))
 
         # Compute the reparameterized local expectations
-        local_signals = model.compute_local_marginal_signals(zs, ps)
-        local_expectations = [model.compute_reparameterized_local_expectation(x, zs, signal, l)
-                              for l, signal in enumerate(local_signals)]
+        local_expectations = [model.compute_reparameterized_local_expectation(x, zs, ps, l) for l in range(len(zs))]
         reparam_signal = F.sum(F.vstack([F.sum(le) for le in local_expectations]))
 
         # Backprop errors from ps and each local expectation.

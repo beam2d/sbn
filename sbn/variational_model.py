@@ -95,7 +95,7 @@ class VariationalModel:
 
         Args:
             zs: Inferred latent variables.
-            ps: Factors of generative models.
+            ps: Factors of the generative model.
             marginalize_q: If true, the log q(z|x) terms use the locally-marginalized entropy. Otherwise, it uses the
                 sampled configurations of z to compute each term of log q(z|x).
 
@@ -180,7 +180,7 @@ class VariationalModel:
 
         Args:
             zs: Inferred latent variables.
-            ps: Factors of generative models.
+            ps: Factors of the generative model.
 
         Returns:
             Local signals of latent variables. The i-th element represents the local signal of the i-th variable.
@@ -203,7 +203,7 @@ class VariationalModel:
         Args:
             x: Input variable.
             zs: Inferred latent variables.
-            ps: Factors of generative models.
+            ps: Factors of the generative model.
             layer: Which layer to compute the local expectation.
 
         Returns:
@@ -216,7 +216,7 @@ class VariationalModel:
             self,
             x: Variable,
             zs: Sequence[RandomVariable],
-            local_signal: Array,
+            ps: Sequence[RandomVariable],
             layer: int
     ) -> Variable:
         """Computes the reparameterized local signal of the specified layer marginalized over each variable.
@@ -226,13 +226,10 @@ class VariationalModel:
         follows the reparameterization trick for discrete variables, i.e., all latent variables of zs[layer+1:] are
         simulated with the fixed noise.
 
-        Note that the local expectation is taken against the locally-marginalized signals. In particular, it does not
-        include the entropy term of zs[layer] if it is locally marginalized.
-
         Args:
             x: Input variable.
             zs: Inferred latent variables.
-            local_signal: Locally-marginalized signal of the layer.
+            ps: Factors of generative model.
             layer: Which layer to compute the reparameterized local expectations.
 
         Returns:

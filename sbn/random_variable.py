@@ -23,6 +23,24 @@ class RandomVariable:
         raise NotImplementedError
 
     @property
+    def prob(self) -> Variable:
+        """Propbability of the sample.
+
+        This variable is a B-dimensional vector where B is the mini-batch size.
+
+        """
+        raise NotImplementedError
+
+    @property
+    def elementwise_prob(self) -> Variable:
+        """Propbability of each variable.
+
+        This variable is a (B, H) matrix where B is the mini-batch size and H the number of variables.
+
+        """
+        raise NotImplementedError
+
+    @property
     def log_prob(self) -> Variable:
         """Log probability of the sample.
 
@@ -115,6 +133,15 @@ class SigmoidBernoulliVariable(RandomVariable):
     def sample(self) -> Variable:
         mean = self.mean
         return Variable((self.noise < mean.data).astype(mean.dtype))
+
+    @cached_property
+    def prob(self) -> Variable:
+        return F.exp(self.log_prob)
+
+    @cached_property
+    def elementwise_prob(self) -> Variable:
+        mean = self.mean
+        return F.where(self.sample.data.astype(bool), mean, 1 - mean)
 
     @cached_property
     def log_prob(self) -> Variable:

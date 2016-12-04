@@ -1,6 +1,6 @@
 from typing import Optional, Sequence, Tuple
 
-from chainer import AbstractSerializer, ChainList, cuda, Link, no_backprop_mode, Variable
+from chainer import AbstractSerializer, ChainList, cuda, Link, Variable
 import chainer.functions as F
 
 from sbn.random_variable import RandomVariable, SigmoidBernoulliVariable
@@ -126,60 +126,72 @@ class VariationalSBN(VariationalModel):
             ps: Sequence[SigmoidBernoulliVariable],
             layer: int
     ) -> Variable:
-        if layer > 0:
-            x = zs[layer - 1].sample
+        xp = cuda.get_array_module(x.data)
         z = zs[layer]
         p = ps[layer]
-        B = len(x.data)
+        p_z = ps[layer + 1]
+        B = len(z.sample.data)
         H = z.sample.shape[1]
+        vb = xp.broadcast_to(self.compute_variational_bound(zs, ps)[:, None], (B, H))
 
+        # z_l with all bits flipped
         z_all_flipped = SigmoidBernoulliVariable(z.logit, 1 - z.sample)
+        # Copies of z_l with one bit flipped (whose shape is (B, H, H))
         z_flipped = z.make_flips()
+        log_z_flipped = (z.log_prob.data[:, None] + z_all_flipped.elementwise_log_prob.data
+                         - z.elementwise_log_prob.data)
 
+        # Compute p(x, z) with flipped z
+        base_score = sum(p.log_prob.data - z.log_prob.data
+                         for l, (p, z) in enumerate(zip(ps, zs)) if not (layer <= l <= layer + 1))
         dec = self.generative_net[layer]
         p_flipped = SigmoidBernoulliVariable(
             F.reshape(dec(F.reshape(z_flipped.sample, (B * H, H))), (B, H, -1)),
             F.broadcast_to(p.sample[:, None], (B, H, p.sample.shape[1])))
-        p_term = F.broadcast_to(p.log_prob[:, None], (B, H))
-
-        p_z = ps[layer + 1]
         p_z_flipped = SigmoidBernoulliVariable(p_z.logit, 1 - p_z.sample)
-        z_coeff = p_term + p_z.elementwise_log_prob - z.elementwise_log_prob
-        z_flipped_coeff = p_flipped.log_prob + p_z_flipped.elementwise_log_prob - z_all_flipped.elementwise_log_prob
+        log_p_z_flipped = (p_z.log_prob.data[:, None] + p_z_flipped.elementwise_log_prob.data
+                           - p_z.elementwise_log_prob.data)
+        vb_flipped = base_score[:, None] + p_flipped.log_prob.data + log_p_z_flipped - log_z_flipped
 
         if layer == len(zs) - 1:  # last layer
-            localexp = z_coeff.data * z.mean + z_flipped_coeff.data * (1 - z.mean)
+            coeff = xp.where(z.sample.data, z.mean.data, 1 - z.mean.data)
         else:
             enc = self.inference_net[layer + 1]
             y = zs[layer + 1]
             H_y = y.sample.shape[1]
             y_flipped = SigmoidBernoulliVariable(F.reshape(enc(F.reshape(z_flipped.sample, (B * H, H))), (B, H, -1)),
                                                  F.broadcast_to(y.sample[:, None], (B, H, H_y)))
-            z_coeff -= F.broadcast_to(y.log_prob[:, None], (B, H))
-            z_flipped_coeff -= y_flipped.log_prob
+            vb_flipped += ps[-1].log_prob.data[:, None] - y_flipped.log_prob.data
             coeff = F.sigmoid(z.elementwise_log_prob + F.broadcast_to(y.log_prob[:, None], (B, H))
-                              - z_all_flipped.elementwise_log_prob - y_flipped.log_prob)
-            localexp = (z_coeff.data * coeff.data * z.elementwise_log_prob +
-                        z_flipped_coeff.data * (1 - coeff.data) * z_all_flipped.elementwise_log_prob)
+                              - z_all_flipped.elementwise_log_prob - y_flipped.log_prob).data
 
+        localexp = (vb * coeff * z.elementwise_log_prob +
+                    vb_flipped * (1 - coeff) * z_all_flipped.elementwise_log_prob)
         return localexp
 
     def compute_reparameterized_local_expectation(
             self,
             x: Variable,
             zs: Sequence[RandomVariable],
-            local_signal: Array,
+            ps: Sequence[RandomVariable],
             layer: int
     ) -> Array:
+        # TODO(beam2d): Marginalize the entropy terms.
         if layer > 0:
             x = zs[layer - 1].sample
         B = len(x.data)
         H = zs[layer].sample.shape[1]
         xp = cuda.get_array_module(x.data)
+        vb = xp.broadcast_to(self.compute_variational_bound(zs, ps)[:, None], (B, H))
 
         z_flipped = zs[layer].make_flips()
+        if layer == 0:
+            vb_flipped = xp.zeros((B, H), dtype='f')
+        else:
+            vb_flipped = sum(p.log_prob.data - z.log_prob.data for l, (p, z) in enumerate(zip(ps, zs)) if l < layer)
+            vb_flipped = vb_flipped[:, None].repeat(H, axis=1)
+
         x_current = F.broadcast_to(F.reshape(x, (B, 1, -1)), (B, H, x.shape[1]))
-        vb_flipped = 0
         for enc, dec, z in zip(self.inference_net[layer:], self.generative_net[layer:], zs[layer:]):
             if z is not zs[layer]:  # skip the first layer
                 logit_flipped = F.reshape(enc(x_current.data.reshape(B * H, -1)), (B, H, -1))
@@ -189,8 +201,7 @@ class VariationalSBN(VariationalModel):
             x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
             p_x = SigmoidBernoulliVariable(x_logit, x_current)
             vb_flipped += p_x.log_prob.data
-            if z is not zs[layer]:  # skip the first layer
-                vb_flipped += z_flipped.entropy.data
+            vb_flipped -= z_flipped.log_prob.data
 
             x_current = z_flipped.sample
 
@@ -199,11 +210,8 @@ class VariationalSBN(VariationalModel):
         p_z = SigmoidBernoulliVariable(prior, z_flipped.mean)
         vb_flipped += p_z.log_prob.data
 
-        z = zs[layer].sample.data
-        mu = zs[layer].mean
-        sign = xp.where(z, z, -1)
-        local_signal_broadcast = xp.broadcast_to(local_signal[:, None], mu.shape)
-        return sign * (mu * (local_signal_broadcast - vb_flipped) + vb_flipped)
+        q_z = zs[layer].elementwise_prob
+        return q_z * (vb - vb_flipped) + vb_flipped
 
     def serialize(self, serializer: AbstractSerializer) -> None:
         self.generative_net.serialize(serializer['generative_net'])

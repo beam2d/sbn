@@ -226,6 +226,9 @@ class VariationalModel:
         follows the reparameterization trick for discrete variables, i.e., all latent variables of zs[layer+1:] are
         simulated with the fixed noise.
 
+        Note that each entropy term is marginalized, and thus the gradient of the return value does not include the
+        direct gradient of the entropy terms.
+
         Args:
             x: Input variable.
             zs: Inferred latent variables.

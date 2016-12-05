@@ -176,19 +176,18 @@ class VariationalSBN(VariationalModel):
             ps: Sequence[RandomVariable],
             layer: int
     ) -> Array:
-        # TODO(beam2d): Marginalize the entropy terms.
         if layer > 0:
             x = zs[layer - 1].sample
         B = len(x.data)
         H = zs[layer].sample.shape[1]
         xp = cuda.get_array_module(x.data)
-        vb = xp.broadcast_to(self.compute_variational_bound(zs, ps)[:, None], (B, H))
+        vb = xp.broadcast_to(self.compute_variational_bound(zs, ps, marginalize_q=True)[:, None], (B, H))
 
         z_flipped = zs[layer].make_flips()
         if layer == 0:
             vb_flipped = xp.zeros((B, H), dtype='f')
         else:
-            vb_flipped = sum(p.log_prob.data - z.log_prob.data for l, (p, z) in enumerate(zip(ps, zs)) if l < layer)
+            vb_flipped = sum(p.log_prob.data + z.entropy.data for l, (p, z) in enumerate(zip(ps, zs)) if l < layer)
             vb_flipped = vb_flipped[:, None].repeat(H, axis=1)
 
         x_current = F.broadcast_to(F.reshape(x, (B, 1, -1)), (B, H, x.shape[1]))
@@ -201,7 +200,7 @@ class VariationalSBN(VariationalModel):
             x_logit = F.reshape(dec(z_flipped.sample.data.reshape(B * H, -1)), (B, H, -1))
             p_x = SigmoidBernoulliVariable(x_logit, x_current)
             vb_flipped += p_x.log_prob.data
-            vb_flipped -= z_flipped.log_prob.data
+            vb_flipped += z_flipped.entropy.data
 
             x_current = z_flipped.sample
 

@@ -238,7 +238,7 @@ def _build_estimator(config: dict, n_layers: int, model: VariationalModel) -> Gr
         return LikelihoodRatioEstimator(
             model, baseline_model, config.get('alpha', 0.8), config.get('variance_normalization', False), n_samples)
     elif method == 'discrete_reparameterization':
-        return DiscreteReparameterizationEstimator(model)
+        return DiscreteReparameterizationEstimator(model, config.get('n_samples', 1))
     elif method == 'local_expectation_gradient':
         return LocalExpectationGradientEstimator(model)
     else:

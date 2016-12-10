@@ -72,6 +72,10 @@ class RandomVariable:
         """
         raise NotImplementedError
 
+    def __getitem__(self, index) -> 'RandomVariable':
+        """Slices the random variable."""
+        raise NotImplementedError
+
     def make_flips(self) -> 'RandomVariable':
         """Creates an array of random variables with each element flipped.
 
@@ -165,6 +169,9 @@ class SigmoidBernoulliVariable(RandomVariable):
         mean = self.mean
         xp = cuda.get_array_module(mean.data)
         return xp.random.rand(*mean.shape).astype(mean.dtype)
+
+    def __getitem__(self, index) -> 'SigmoidBernoulliVariable':
+        return SigmoidBernoulliVariable(self.logit[index], self.sample[index], self.noise[index])
 
     def make_flips(self) -> 'SigmoidBernoulliVariable':
         # Create D copies of a (B, D) binary array, where the (*, i)-th elements are flipped in the i-th copy.

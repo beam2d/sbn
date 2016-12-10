@@ -40,6 +40,10 @@ class TestRandomVariable(TestCase):
         with self.assertRaises(NotImplementedError):
             _ = self.rv.entropy
 
+    def test_getitem(self):
+        with self.assertRaises(NotImplementedError):
+            _ = self.rv[0]
+
     def test_make_flips(self):
         with self.assertRaises(NotImplementedError):
             self.rv.make_flips()
@@ -100,6 +104,13 @@ class TestSigmoidBernoulliVariable(TestCase):
         mu = 1 / (1 + xp.exp(-logit))
         entropy = (-mu * xp.log(mu) - (1 - mu) * xp.log(1 - mu)).sum(axis=1)
         xp.testing.assert_allclose(self.rv.entropy.data, entropy, rtol=1e-5)
+
+    def test_getitem(self):
+        xp = self.xp
+        slc = self.rv[1:3, 2:]
+        xp.testing.assert_array_equal(slc.logit.data, self.rv.logit[1:3, 2:].data)
+        xp.testing.assert_array_equal(slc.sample.data, self.rv.sample[1:3, 2:].data)
+        xp.testing.assert_array_equal(slc.noise, self.rv.noise[1:3, 2:])
 
     def test_make_flips(self):
         xp = self.xp

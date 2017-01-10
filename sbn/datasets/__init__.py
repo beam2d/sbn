@@ -1,2 +1,3 @@
 from sbn.datasets.binary_mnist import get_offline_binary_mnist, get_online_binary_mnist
+from sbn.datasets.omniglot import get_offline_binary_omniglot, get_online_binary_omniglot
 from sbn.datasets.online_binary_arrays import OnlineBinaryArrays

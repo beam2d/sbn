@@ -15,6 +15,7 @@ import numpy as np
 import yaml
 
 from sbn.datasets import get_offline_binary_mnist, get_online_binary_mnist
+from sbn.datasets import get_offline_binary_omniglot, get_online_binary_omniglot
 from sbn.estimators import DiscreteReparameterizationEstimator, LikelihoodRatioEstimator
 from sbn.estimators import LocalExpectationGradientEstimator
 from sbn.extensions import evaluate_gradient_variance, evaluate_log_likelihood, KeepBestModel, report_training_time
@@ -270,23 +271,35 @@ def _build_optimizer(config: dict, target: Optional[Link]) -> Optional[Optimizer
     return opt
 
 
+_DATASET_LOADER = {
+    'mnist': [
+        get_offline_binary_mnist,
+        get_online_binary_mnist
+    ],
+    'omniglot': [
+        get_offline_binary_omniglot,
+        get_online_binary_omniglot
+    ],
+}
+
+
 def _get_dataset(name: str, online: bool, use_gpu: bool) -> Tuple[np.ndarray, Any, Any, Any]:
-    if name == 'mnist':
-        if online:
-            train, valid, test = get_online_binary_mnist()
-            mean = np.mean(train.base, axis=0, keepdims=True)
-            if use_gpu:
-                train.base = cuda.to_gpu(train.base)
-                valid.base = cuda.to_gpu(valid.base)
-                test.base = cuda.to_gpu(test.base)
-        else:
-            train, valid, test = get_offline_binary_mnist()
-            mean = np.mean(train, axis=0, keepdims=True)
-            if use_gpu:
-                train = cuda.to_gpu(train)
-                valid = cuda.to_gpu(valid)
-                test = cuda.to_gpu(test)
-    else:
+    if name not in _DATASET_LOADER:
         raise ValueError('dataset "{}" is not supported'.format(name))
+
+    loader = _DATASET_LOADER[name][online]
+    train, valid, test = loader()
+    if online:
+        mean = np.mean(train.base, axis=0, keepdims=True)
+        if use_gpu:
+            train.base = cuda.to_gpu(train.base)
+            valid.base = cuda.to_gpu(valid.base)
+            test.base = cuda.to_gpu(test.base)
+    else:
+        mean = np.mean(train, axis=0, keepdims=True)
+        if use_gpu:
+            train = cuda.to_gpu(train)
+            valid = cuda.to_gpu(valid)
+            test = cuda.to_gpu(test)
 
     return mean, train, valid, test

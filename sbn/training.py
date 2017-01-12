@@ -6,6 +6,7 @@ from typing import Any, Optional, Tuple
 
 from chainer import Chain, Function, is_debug, Link, Optimizer, set_debug, Variable
 from chainer import cuda, functions as F, links as L, optimizers
+from chainer.initializers import GlorotUniform
 from chainer.iterators import SerialIterator
 from chainer.optimizer import WeightDecay
 from chainer.serializers import load_npz
@@ -208,9 +209,9 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 class NonlinearLayer(Chain):
 
     def __init__(self, n_in: int, n_out: int) -> None:
-        super().__init__(l1=L.Linear(n_in, n_in),
-                         l2=L.Linear(n_in, n_in),
-                         l3=L.Linear(n_in, n_out))
+        super().__init__(l1=L.Linear(n_in, n_in, initialW=GlorotUniform()),
+                         l2=L.Linear(n_in, n_in, initialW=GlorotUniform()),
+                         l3=L.Linear(n_in, n_out, initialW=GlorotUniform()))
 
     def __call__(self, x: Variable) -> Variable:
         h = F.tanh(self.l1(x))
@@ -222,7 +223,7 @@ def _build_layers(config: dict) -> Tuple[Tuple[Link, ...], int]:
     typ = config.get('type', 'linear')
     if typ == 'linear':
         units = config['units']
-        return tuple(L.Linear(None, unit) for unit in units), units[-1]
+        return tuple(L.Linear(None, unit, initialW=GlorotUniform()) for unit in units), units[-1]
     elif typ == 'nonlinear':
         units = config['units']
         return tuple(NonlinearLayer(n_in, n_out) for n_in, n_out in units), units[-1][1]

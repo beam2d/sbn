@@ -1,0 +1,30 @@
+name: mnist-linear-dr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
+dataset: mnist
+batch_size: $batch_size
+eval_batch_size: $batch_size
+binarize_online: true
+iteration: 5_000_000
+
+inference_net:
+    type: linear
+    units: [200, 200]
+    optimizer:
+        method: rmsprop
+        lr: $lr
+        weight_decay: $decay
+
+generative_net:
+    type: linear
+    units: [784, 200]
+    optimizer:
+        method: rmsprop
+        lr: $lr
+        weight_decay: $decay
+
+estimator:
+    method: discrete_reparameterization
+    n_samples: $n_samples
+    optimizer:
+        method: rmsprop
+        lr: $lr
+        weight_decay: $decay

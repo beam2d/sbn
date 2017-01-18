@@ -1,5 +1,5 @@
-name: mnist-linear-dr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
-dataset: mnist
+name: $dataset-linear-dr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
+dataset: $dataset
 batch_size: $batch_size
 eval_batch_size: $batch_size
 binarize_online: true

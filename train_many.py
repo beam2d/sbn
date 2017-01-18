@@ -76,7 +76,7 @@ def _run_experiments_on_a_gpu(template_path: str, device: int, setting_queue: Qu
 
 
 def _run_experiment(config: str, device: int):
-    train_variational_model(config, device, resume='', verbose=False)
+    train_variational_model(config, device, resume='auto', verbose=False)
 
 
 if __name__ == '__main__':

@@ -43,7 +43,8 @@ def train_variational_model(
     Args:
         config: YAML config string.
         gpu: GPU device ID to use (-1 for CPU).
-        resume: Path to the trainer snapshot to resume from.
+        resume: Path to the trainer snapshot to resume from. If it is 'auto', the latest snapshot is automatically
+            chosen from the output directory.
         debug: If True, it runs in the debug mode.
         verbose: If True, it prints messages.
 
@@ -175,7 +176,11 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
              'elapsed_time', 'training_time']))
         trainer.extend(ProgressBar())
 
+    if resume == 'auto':
+        path = os.path.join(out_path, 'last_snapshot')
+        resume = path if os.path.exists(path) else ''
     if resume:
+        print('resume from {}'.format(resume))
         load_npz(resume, trainer)
 
     # Copy the config file to the output directory

@@ -117,8 +117,9 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 
     # Load datasets
     mean, train, valid, test = _get_dataset(config['dataset'], config.get('binarize_online', True), use_gpu)
-    infer_layers, prior_size = _build_layers(config['inference_net'])
-    gen_layers, _ = _build_layers(config['generative_net'])
+    D = train.shape[1]
+    infer_layers, prior_size = _build_layers(D, config['inference_net'])
+    gen_layers, _ = _build_layers(prior_size, config['generative_net'])
 
     # Set up a model and optimizers
     model = VariationalSBN(gen_layers, infer_layers, prior_size, mean)
@@ -224,11 +225,12 @@ class NonlinearLayer(Chain):
         return self.l3(h)
 
 
-def _build_layers(config: dict) -> Tuple[Tuple[Link, ...], int]:
+def _build_layers(input_size: int, config: dict) -> Tuple[Tuple[Link, ...], int]:
     typ = config.get('type', 'linear')
     if typ == 'linear':
-        units = config['units']
-        return tuple(L.Linear(None, unit, initialW=GlorotUniform()) for unit in units), units[-1]
+        units = [input_size] + config['units']
+        return tuple(L.Linear(n_in, n_out, initialW=GlorotUniform())
+                     for n_in, n_out in zip(units[:-1], units[1:])), units[-1]
     elif typ == 'nonlinear':
         units = config['units']
         return tuple(NonlinearLayer(n_in, n_out) for n_in, n_out in units), units[-1][1]

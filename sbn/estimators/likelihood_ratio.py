@@ -24,7 +24,7 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         baseline_models: Local signal predictors for input-dependent baseline. The i-th predictor takes all ancestral
             variables of the i-th latent layer and outputs a B-vector, where B is the mini-batch size.
         alpha: Moving average coefficient of the accumulated signal values. This is the alpha parameter of NVIL, which
-            appears in the appendix of [1].
+            appears in the appendix of [1]. Passing alpha=1 is equivalent to disable the standard baseline.
         normalize_variance: If true, variance normalization is enabled.
         n_samples: Number of samples used for Monte Carlo simulations.
 
@@ -86,13 +86,14 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
             signals -= baselines.data
 
         # standard baseline and variance normalization
-        self.c += self._coeff * (signals.mean(axis=1) - self.c)  # TODO(beam2d): Unify the kernel
-        if self.v is not None:
-            self.v += self._coeff * (signals.var(axis=1) - self.v)  # TODO(beam2d): Unify the kernel
-            signals -= self.c[:, None]
-            signals /= xp.maximum(1, xp.sqrt(self.v))[:, None]
-        else:
-            signals -= self.c[:, None]
+        if self._coeff > 0:
+            self.c += self._coeff * (signals.mean(axis=1) - self.c)  # TODO(beam2d): Unify the kernel
+            if self.v is not None:
+                self.v += self._coeff * (signals.var(axis=1) - self.v)  # TODO(beam2d): Unify the kernel
+                signals -= self.c[:, None]
+                signals /= xp.maximum(1, xp.sqrt(self.v))[:, None]
+            else:
+                signals -= self.c[:, None]
 
         p_terms = F.sum(F.vstack([p.log_prob for p in ps]))
         q_terms = F.sum(signals * F.vstack([z.log_prob for z in zs]))

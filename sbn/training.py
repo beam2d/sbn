@@ -56,7 +56,8 @@ def train_variational_model(
     - inference_net: Inference network configuration. It is a dictionary containing the following entries.
 
       - type: Type of the network (linear by default).
-      - units: Number of units in each layer (from the shallowest layer to the deepest layer).
+      - units: Shape of each layer (from the shallowest layer to the deepest layer).
+        Each entry is in the form [in_size, out_size].
       - optimizer: Optimizer configuration for the network. It is a dictionary containing the following entries.
 
         - method: Optimization method (sgd by default).
@@ -117,9 +118,8 @@ def _train_variational_model(config_raw: str, gpu: int, resume: str, verbose: bo
 
     # Load datasets
     mean, train, valid, test = _get_dataset(config['dataset'], config.get('binarize_online', True), use_gpu)
-    D = train.shape[1]
-    infer_layers, prior_size = _build_layers(D, config['inference_net'])
-    gen_layers, _ = _build_layers(prior_size, config['generative_net'])
+    infer_layers, prior_size = _build_layers(config['inference_net'])
+    gen_layers, _ = _build_layers(config['generative_net'])
 
     # Set up a model and optimizers
     model = VariationalSBN(gen_layers, infer_layers, prior_size, mean)
@@ -225,14 +225,12 @@ class NonlinearLayer(Chain):
         return self.l3(h)
 
 
-def _build_layers(input_size: int, config: dict) -> Tuple[Tuple[Link, ...], int]:
+def _build_layers(config: dict) -> Tuple[Tuple[Link, ...], int]:
     typ = config.get('type', 'linear')
+    units = config['units']
     if typ == 'linear':
-        units = [input_size] + config['units']
-        return tuple(L.Linear(n_in, n_out, initialW=GlorotUniform())
-                     for n_in, n_out in zip(units[:-1], units[1:])), units[-1]
+        return tuple(L.Linear(n_in, n_out) for n_in, n_out in units), units[-1][1]
     elif typ == 'nonlinear':
-        units = config['units']
         return tuple(NonlinearLayer(n_in, n_out) for n_in, n_out in units), units[-1][1]
     else:
         raise ValueError('unsupported layer type: "{}"'.format(typ))
@@ -245,7 +243,7 @@ def _build_estimator(config: dict, n_layers: int, model: VariationalModel) -> Gr
         baseline_model = [BaselineModel() for _ in range(n_layers)] if use_baseline_model else None
         n_samples = config.get('n_samples', 1)
         return LikelihoodRatioEstimator(
-            model, baseline_model, config.get('alpha', 0.8), config.get('variance_normalization', False), n_samples)
+            model, baseline_model, float(config.get('alpha', 0.8)), config.get('variance_normalization', False), n_samples)
     elif method == 'discrete_reparameterization':
         return DiscreteReparameterizationEstimator(model, config.get('n_samples', 1))
     elif method == 'local_expectation_gradient':
@@ -260,19 +258,20 @@ def _build_optimizer(config: dict, target: Optional[Link]) -> Optional[Optimizer
     method = config.get('method', 'sgd')
     if method == 'sgd':
         if 'momentum' in config:
-            opt = optimizers.MomentumSGD(config['lr'], config['momentum'])
+            opt = optimizers.MomentumSGD(float(config['lr']), float(config['momentum']))
         else:
-            opt = optimizers.SGD(config['lr'])
+            opt = optimizers.SGD(float(config['lr']))
     elif method == 'rmsprop':
-        opt = optimizers.RMSprop(config['lr'], config.get('alpha', 0.99), config.get('eps', 1e-8))
+        opt = optimizers.RMSprop(float(config['lr']), float(config.get('alpha', 0.99)), float(config.get('eps', 1e-8)))
     elif method == 'adam':
         opt = optimizers.Adam(
-            config['alpha'], config.get('beta1', 0.9), config.get('beta2', 0.999), config.get('eps', 1e-8))
+            float(config['alpha']), float(config.get('beta1', 0.9)), float(config.get('beta2', 0.999)),
+            float(config.get('eps', 1e-8)))
     else:
         raise ValueError('unknown optimizer method: "{}"'.format(method))
     opt.setup(target)
 
-    decay = config.get('weight_decay', 0.)
+    decay = float(config.get('weight_decay', 0.))
     if decay > 0:
         opt.add_hook(WeightDecay(decay))
 

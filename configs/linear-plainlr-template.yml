@@ -1,4 +1,4 @@
-name: $dataset-linear-lr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
+name: $dataset-linear-plainlr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
 dataset: $dataset
 batch_size: $batch_size
 eval_batch_size: $batch_size
@@ -23,8 +23,9 @@ generative_net:
 
 estimator:
     method: likelihood_ratio
-    use_baseline_model: true
+    use_baseline_model: false
     normalize_variance: false
+    alpha: 1
     n_samples: $n_samples
     optimizer:
         method: rmsprop

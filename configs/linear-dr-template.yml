@@ -7,7 +7,7 @@ iteration: 5_000_000
 
 inference_net:
     type: linear
-    units: [200, 200]
+    units: [[784, 200], [200, 200]]
     optimizer:
         method: rmsprop
         lr: $lr
@@ -15,7 +15,7 @@ inference_net:
 
 generative_net:
     type: linear
-    units: [784, 200]
+    units: [[200, 784], [200, 200]]
     optimizer:
         method: rmsprop
         lr: $lr

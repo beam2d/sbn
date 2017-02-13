@@ -1,4 +1,4 @@
-name: $dataset-linear-stdlr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
+name: $dataset-deep-dr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
 dataset: $dataset
 batch_size: $batch_size
 eval_batch_size: $batch_size
@@ -7,7 +7,7 @@ iteration: 2_000_000
 
 inference_net:
     type: linear
-    units: [[784, 200], [200, 200]]
+    units: [[784, 200], [200, 200], [200, 200], [200, 200]]
     optimizer:
         method: rmsprop
         lr: $lr
@@ -15,16 +15,14 @@ inference_net:
 
 generative_net:
     type: linear
-    units: [[200, 784], [200, 200]]
+    units: [[200, 784], [200, 200], [200, 200], [200, 200]]
     optimizer:
         method: rmsprop
         lr: $lr
         weight_decay: $decay
 
 estimator:
-    method: likelihood_ratio
-    use_baseline_model: false
-    normalize_variance: false
+    method: discrete_reparameterization
     n_samples: $n_samples
     optimizer:
         method: rmsprop

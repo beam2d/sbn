@@ -1,6 +1,6 @@
 template: configs/linear-plainlr-template.yml
 dataset: [omniglot, mnist]
-batch_size: [20]
+batch_size: [100]
 decay: [0.001]
-lr: [0.0001, 0.0003, 0.001]
+lr: [0.0003, 0.001, 0.003]
 n_samples: [1]

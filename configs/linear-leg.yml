@@ -1,4 +1,4 @@
-template: configs/linear-dr-template.yml
+template: configs/linear-leg-template.yml
 dataset: [omniglot, mnist]
 batch_size: [100]
 decay: [0.001]

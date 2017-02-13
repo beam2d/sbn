@@ -1,4 +1,4 @@
-name: $dataset-linear-stdlr#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
+name: $dataset-linear-leg#batch_size=$batch_size-decay=$decay-lr=$lr-n_samples=$n_samples
 dataset: $dataset
 batch_size: $batch_size
 eval_batch_size: $batch_size
@@ -22,10 +22,7 @@ generative_net:
         weight_decay: $decay
 
 estimator:
-    method: likelihood_ratio
-    use_baseline_model: false
-    normalize_variance: false
-    n_samples: $n_samples
+    method: local_expectation_gradient
     optimizer:
         method: rmsprop
         lr: $lr

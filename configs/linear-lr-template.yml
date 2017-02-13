@@ -3,7 +3,7 @@ dataset: $dataset
 batch_size: $batch_size
 eval_batch_size: $batch_size
 binarize_online: true
-iteration: 5_000_000
+iteration: 2_000_000
 
 inference_net:
     type: linear

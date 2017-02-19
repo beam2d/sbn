@@ -70,13 +70,15 @@ class VariationalSBN(VariationalModel):
         self.inference_net.to_cpu()
         self.mean = cuda.to_cpu(self.mean)
 
-    def infer(self, x: Variable) -> Tuple[SigmoidBernoulliVariable, ...]:
+    def infer(self, x: Variable, mean_field: bool=False) -> Tuple[SigmoidBernoulliVariable, ...]:
         if self.mean is not None:
             x = x - self.mean
         zs = []
         for layer in self.inference_net:
             logit = layer(x)
             z = SigmoidBernoulliVariable(logit)
+            if mean_field:
+                z._sample = z.mean
             zs.append(z)
             x = z.sample
         return tuple(zs)
@@ -151,7 +153,9 @@ class VariationalSBN(VariationalModel):
         p_z_flipped = SigmoidBernoulliVariable(p_z.logit, 1 - p_z.sample)
         log_p_z_flipped = (p_z.log_prob.data[:, None] + p_z_flipped.elementwise_log_prob.data
                            - p_z.elementwise_log_prob.data)
-        vb_flipped = base_score[:, None] + p_flipped.log_prob.data + log_p_z_flipped - log_z_flipped
+        if isinstance(base_score, xp.ndarray):
+            base_score = base_score[:, None]
+        vb_flipped = base_score + p_flipped.log_prob.data + log_p_z_flipped - log_z_flipped
 
         if layer == len(zs) - 1:  # last layer
             coeff = xp.where(z.sample.data, z.mean.data, 1 - z.mean.data)

@@ -46,37 +46,12 @@ def plot(root: str, dataset: str, model: str, n_samples: int, title: str, out: s
     log_dr, exp_dr = _get_best_log(root, lambda exp: _cond(exp) and exp['method'] == 'dr')
 
     plainlr_title = 'LR'
-    stdlr_title = 'LR+B'
-    lr_title = 'LR+B+IDB'
-    muprop_title = 'MuProp'
+    stdlr_title = 'LR+C'
+    lr_title = 'LR+C+IDB'
+    muprop_title = 'MuProp+C'
     leg_title = 'LEG'
-    dr_title = 'ours'
+    dr_title = 'RAM'
 
-    figure = plt.figure()
-    # figure.suptitle('{} {} n_samples={}'.format(dataset, model, n_samples))
-
-    axes = figure.add_subplot(211)
-    # axes = figure.add_subplot(111)
-    # axes.set_xlabel('Iteration')
-    axes.set_ylabel('Variational lower bound')
-    axes.set_xticklabels([])
-    # axes.xaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(100000))
-    axes.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
-    # axes.grid(which='major', color='#999999', linestyle='-')
-    # axes.grid(which='minor', color='#999999', linestyle=':')
-
-    def _plot(ax, log, ykey, color, marker, linestyle, label=None):
-        xs = [e['iteration'] for e in log]
-        ys = [e[ykey] for e in log]
-        ax.plot(xs, ys, color=color, marker=marker, linestyle=linestyle,
-                mec=color, mew=1, mfc='None', markevery=10, label=label)
-
-    # color_plainlr = '#ff0000'
-    # color_stdlr = '#999900'
-    # color_lr = '#66aa00'
-    # color_muprop = '#aa0066'
-    # color_leg = '#666699'
-    # color_dr = '#3333ff'
     color_plainlr = color_stdlr = color_lr = color_muprop = color_leg = color_dr = None
     mark_plainlr = '<'
     mark_stdlr = '>'
@@ -84,6 +59,32 @@ def plot(root: str, dataset: str, model: str, n_samples: int, title: str, out: s
     mark_muprop = '^'
     mark_leg = 'o'
     mark_dr = '*'
+
+    def _plot(ax, log, ykey, color, marker, linestyle, label=None):
+        xs = [e['iteration'] for e in log]
+        ys = [e[ykey] for e in log]
+        ax.plot(xs, ys, color=color, marker=marker, linestyle=linestyle,
+                mec=color, mew=1, mfc='None', markevery=10, label=label)
+
+    figure = plt.figure()
+
+    axes = figure.add_subplot(211)
+    axes.set_ylabel('Gradient variance')
+    axes.set_xticklabels([])
+    axes.set_yscale('log')
+
+    _plot(axes, log_plainlr, 'gradvar/mean', color_plainlr, mark_plainlr, 'solid', plainlr_title)
+    _plot(axes, log_stdlr, 'gradvar/mean', color_stdlr, mark_stdlr, 'solid', stdlr_title)
+    _plot(axes, log_lr, 'gradvar/mean', color_lr, mark_lr, 'solid', lr_title)
+    _plot(axes, log_muprop, 'gradvar/mean', color_muprop, mark_muprop, 'solid', muprop_title)
+    _plot(axes, log_leg, 'gradvar/mean', color_leg, mark_leg, 'solid', leg_title)
+    _plot(axes, log_dr, 'gradvar/mean', color_dr, mark_dr, 'solid', dr_title)
+
+    axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=6, mode='expand', borderaxespad=0.)
+
+    axes = figure.add_subplot(212)
+    axes.set_ylabel('Variational lower bound')
+    axes.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
 
     _plot(axes, log_plainlr, 'train/vb', color_plainlr, '', 'dotted')
     _plot(axes, log_stdlr, 'train/vb', color_stdlr, '', 'dotted')
@@ -98,29 +99,6 @@ def plot(root: str, dataset: str, model: str, n_samples: int, title: str, out: s
     _plot(axes, log_leg, 'validation/vb', color_leg, mark_leg, 'solid', leg_title)
     _plot(axes, log_dr, 'validation/vb', color_dr, mark_dr, 'solid', dr_title)
 
-    axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=6, mode='expand', borderaxespad=0.)
-    # figure.savefig('vb-' + out)
-
-    # figure.clf()
-    # axes = figure.add_subplot(111)
-    axes = figure.add_subplot(212)
-    axes.set_xlabel('Iteration')
-    axes.set_ylabel('Gradient variance')
-    # axes.xaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(100000))
-    # axes.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
-    axes.set_yscale('log')
-    # axes.grid(which='major', color='#999999', linestyle='-')
-    # axes.grid(which='minor', color='#999999', linestyle=':')
-
-    _plot(axes, log_plainlr, 'gradvar/mean', color_plainlr, mark_plainlr, 'solid', plainlr_title)
-    _plot(axes, log_stdlr, 'gradvar/mean', color_stdlr, mark_stdlr, 'solid', stdlr_title)
-    _plot(axes, log_lr, 'gradvar/mean', color_lr, mark_lr, 'solid', lr_title)
-    _plot(axes, log_muprop, 'gradvar/mean', color_muprop, mark_muprop, 'solid', muprop_title)
-    _plot(axes, log_leg, 'gradvar/mean', color_leg, mark_leg, 'solid', leg_title)
-    _plot(axes, log_dr, 'gradvar/mean', color_dr, mark_dr, 'solid', dr_title)
-
-    # axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=4, mode='expand', borderaxespad=0.)
-    # figure.savefig('var-' + out)
     figure.suptitle(title)
     figure.savefig(out)
 

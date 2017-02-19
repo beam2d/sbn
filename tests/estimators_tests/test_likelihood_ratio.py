@@ -14,9 +14,14 @@ class TestLikelihoodRatioEstimator(TestCase):
         self.x.to_gpu()
         self.tester.to_gpu()
 
-    def test_estimate_gradient(self):
-        estimator = LikelihoodRatioEstimator(self.tester.model)
+    def check_gradient_estimation(self, estimator):
         self.to_gpu()
         estimator.to_gpu()
         self.tester.dry_run(self.x, estimator, n_sample=1000, trial=100)  # prepare the baseline estimation
         self.tester.check_estimator(self.x, estimator, n_sample=100000, trial=100)
+
+    def test_constant_baseline(self):
+        self.check_gradient_estimation(LikelihoodRatioEstimator(self.tester.model))
+
+    def test_muprop(self):
+        self.check_gradient_estimation(LikelihoodRatioEstimator(self.tester.model, use_muprop=True))

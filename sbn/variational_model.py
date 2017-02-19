@@ -49,13 +49,15 @@ class VariationalModel:
         """
         raise NotImplementedError
 
-    def infer(self, x: Variable) -> Tuple[RandomVariable, ...]:
+    def infer(self, x: Variable, mean_field: bool=False) -> Tuple[RandomVariable, ...]:
         """Infers latent variables of the approximate posterior model given the input configuration x.
 
         The returned variables follow the topological order of the directed graphical model.
 
         Args:
             x: Configuration of input variables.
+            mean_field: If true, latent variables are inferred by the mean-field network without intermediate
+                stochasticities.
 
         Returns:
             Tuple of inferred latent variables.

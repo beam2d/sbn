@@ -73,6 +73,7 @@ def train_variational_model(
         - use_baseline_model: If true, use baseline models (False by default).
         - alpha: Alpha parameter of the baseline/variance estimation (0.8 by default).
         - normalize_variance: If true, use variance normalization (False by default).
+        - use_muprop: If true, use MuProp baseline (False by default).
         - n_samples: Number of samples used for each Monte Carlo simulation.
 
     - batch_size: Training mini-batch size (100 by default).
@@ -241,9 +242,11 @@ def _build_estimator(config: dict, n_layers: int, model: VariationalModel) -> Gr
     if method == 'likelihood_ratio':
         use_baseline_model = config.get('use_baseline_model', False)
         baseline_model = [BaselineModel() for _ in range(n_layers)] if use_baseline_model else None
+        use_muprop = config.get('use_muprop', False)
         n_samples = config.get('n_samples', 1)
         return LikelihoodRatioEstimator(
-            model, baseline_model, float(config.get('alpha', 0.8)), config.get('variance_normalization', False), n_samples)
+            model, baseline_model, float(config.get('alpha', 0.8)), config.get('variance_normalization', False),
+            use_muprop, n_samples)
     elif method == 'discrete_reparameterization':
         return DiscreteReparameterizationEstimator(model, config.get('n_samples', 1))
     elif method == 'local_expectation_gradient':

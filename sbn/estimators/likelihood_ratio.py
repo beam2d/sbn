@@ -26,10 +26,13 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         alpha: Moving average coefficient of the accumulated signal values. This is the alpha parameter of NVIL, which
             appears in the appendix of [1]. Passing alpha=1 is equivalent to disable the standard baseline.
         normalize_variance: If true, variance normalization is enabled.
+        use_muprop: If true, MuProp baseline [2] is enabled.
         n_samples: Number of samples used for Monte Carlo simulations.
 
     Reference;
         [1]: A. Mnih and K. Gregor. Neural Variational Inference and Learning in Belief Networks. ICML, 2014.
+        [2]: S. Gu, S. Levine, I. Sutskever and A. Mnih. MuProp: Unbiased Backpropagation for Stochastic Neural
+        Networks. ICLR, 2016.
 
     """
     def __init__(
@@ -37,7 +40,8 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
             model: VariationalModel,
             baseline_models: Optional[Sequence[Link]]=None,
             alpha: float=0.8,
-            normalize_variance=False,
+            normalize_variance: bool=False,
+            use_muprop: bool=False,
             n_samples: int=1
     ) -> None:
         super().__init__()
@@ -59,6 +63,7 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         else:
             self.add_link('baseline_models', ChainList(*baseline_models))
 
+        self._use_muprop = use_muprop
         self._n_samples = n_samples
 
     def estimate_gradient(self, x: Variable) -> None:
@@ -70,6 +75,24 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         zs = self._model.infer(x)
         ps = self._model.compute_generative_factors(x, zs)
         signals = xp.vstack(self._model.compute_local_signals(zs, ps))  # (L, B)-matrix
+
+        # MuProp baseline
+        residuals = 0
+        if self._use_muprop:
+            zs_mf = self._model.infer(x, mean_field=True)
+            ps_mf = self._model.compute_generative_factors(x, zs_mf)
+            q_mf = F.sum(F.vstack([z.log_prob[None] for z in zs_mf]), axis=0)
+            p_mf = F.sum(F.vstack([p.log_prob[None] for p in ps_mf]), axis=0)
+            f_mf = q_mf - p_mf
+            F.sum(f_mf).backward(retain_grad=True)
+            zs_mf_grad = [z.sample.grad for z in zs_mf]
+
+            signals_mf = xp.vstack(self._model.compute_local_signals(zs_mf, ps_mf))
+            signals -= signals_mf
+            signals -= xp.vstack([(gf * (z.sample.data - z_mf.sample.data)).sum(axis=1)[None]
+                                  for gf, z, z_mf in zip(zs_mf_grad, zs, zs_mf)])
+
+            residuals = F.sum(F.vstack([F.sum(z.mean * gf) for z, gf in zip(zs, zs_mf_grad)]))
 
         # input-dependent baseline
         if self.baseline_models is not None:
@@ -99,7 +122,7 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         q_terms = F.sum(signals * F.vstack([z.log_prob for z in zs]))
         # Note: we have to compute the gradient w.r.t. the bound of the NEGATIVE log likelihood
         self._model.cleargrads()
-        ((-p_terms - q_terms) / K).backward()
+        ((-p_terms - q_terms - residuals) / K).backward()
 
         if self.baseline_models is not None:
             bl_terms = -F.sum(signals * baselines) / K

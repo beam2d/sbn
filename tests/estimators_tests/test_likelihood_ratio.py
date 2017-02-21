@@ -14,11 +14,11 @@ class TestLikelihoodRatioEstimator(TestCase):
         self.x.to_gpu()
         self.tester.to_gpu()
 
-    def check_gradient_estimation(self, estimator):
+    def check_gradient_estimation(self, estimator, rtol=1e-3, atol=1e-3):
         self.to_gpu()
         estimator.to_gpu()
         self.tester.dry_run(self.x, estimator, n_sample=1000, trial=100)  # prepare the baseline estimation
-        self.tester.check_estimator(self.x, estimator, n_sample=100000, trial=100)
+        self.tester.check_estimator(self.x, estimator, n_sample=100000, trial=100, rtol=rtol, atol=atol)
 
     def test_constant_baseline(self):
         self.check_gradient_estimation(LikelihoodRatioEstimator(self.tester.model))

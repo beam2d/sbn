@@ -1,6 +1,6 @@
 from typing import Optional, Sequence
 
-from chainer import Chain, ChainList, cuda, Link, Variable
+from chainer import Chain, ChainList, cuda, Function, Link, Variable
 import chainer.functions as F
 import numpy as np
 
@@ -10,6 +10,26 @@ from sbn.variational_model import VariationalModel
 
 
 __all__ = ['LikelihoodRatioEstimator']
+
+
+class LogProbOfMean(Function):
+
+    """Numerically stable log-prob of mean."""
+    def __init__(self, logit):
+        self.logit = logit
+
+    def forward(self, inputs):
+        mean, = inputs
+        return mean * self.logit - F.Softplus().forward((self.logit,))[0],
+
+    def backward(self, inputs, grad_outputs):
+        mean, = inputs
+        gy, = grad_outputs
+        return gy * self.logit,
+
+
+def log_prob_of_mean(logit, mean):
+    return LogProbOfMean(logit)(mean)
 
 
 class LikelihoodRatioEstimator(Chain, GradientEstimator):
@@ -81,14 +101,13 @@ class LikelihoodRatioEstimator(Chain, GradientEstimator):
         if self._use_muprop:
             zs_mf = self._model.infer(x, mean_field=True)
             ps_mf = self._model.compute_generative_factors(x, zs_mf)
-            q_mf = F.sum(F.vstack([z.log_prob[None] for z in zs_mf]), axis=0)
-            p_mf = F.sum(F.vstack([p.log_prob[None] for p in ps_mf]), axis=0)
-            f_mf = q_mf - p_mf
-            F.sum(f_mf).backward(retain_grad=True)
+
+            q_mf = F.sum(F.vstack([F.sum(log_prob_of_mean(z.logit.data, z.sample), axis=-1)[None] for z in zs_mf]))
+            p_mf = F.sum(F.vstack([p.log_prob[None] for p in ps_mf]))
+            (p_mf - q_mf).backward(retain_grad=True)
             zs_mf_grad = [z.sample.grad for z in zs_mf]
 
-            signals_mf = xp.vstack(self._model.compute_local_signals(zs_mf, ps_mf))
-            signals -= signals_mf
+            signals -= xp.vstack(self._model.compute_local_signals(zs_mf, ps_mf))
             signals -= xp.vstack([(gf * (z.sample.data - z_mf.sample.data)).sum(axis=1)[None]
                                   for gf, z, z_mf in zip(zs_mf_grad, zs, zs_mf)])
 

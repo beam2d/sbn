@@ -76,9 +76,10 @@ class VariationalSBN(VariationalModel):
         zs = []
         for layer in self.inference_net:
             logit = layer(x)
-            z = SigmoidBernoulliVariable(logit)
             if mean_field:
-                z._sample = z.mean
+                z = SigmoidBernoulliVariable(logit, sample=F.sigmoid(logit))
+            else:
+                z = SigmoidBernoulliVariable(logit)
             zs.append(z)
             x = z.sample
         return tuple(zs)

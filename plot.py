@@ -22,18 +22,20 @@ def main() -> None:
     parser.add_argument('--root', '-R', default='result', help='result root directory')
     parser.add_argument('--outprefix', '-o', default='', help='output prefix')
     parser.add_argument('--outsuffix', '-s', default='.pdf', help='output suffix')
+    parser.add_argument('--trainonly', '-T', action='store_true', help='plot training curve only')
     args = parser.parse_args()
 
     out = '{}{}-{}-K={}{}'.format(args.outprefix, args.dataset, args.model, args.n_samples, args.outsuffix)
-    plot(args.root, args.dataset, args.model, args.n_samples, args.title, out)
+    plot(args.root, args.dataset, args.model, args.n_samples, args.title, args.trainonly, out)
 
 
 TITLE = {'mnist': 'MNIST', 'omniglot': 'Omniglot'}
+TITLE_PREFIX = {'linear': '(200-200-784)', 'deep': '(200-200-200-200-784)'}
 
 
-def plot(root: str, dataset: str, model: str, n_samples: int, title: str, out: str) -> None:
+def plot(root: str, dataset: str, model: str, n_samples: int, title: str, trainonly: bool, out: str) -> None:
     if not title:
-        title = TITLE[dataset]
+        title = '{} {}'.format(TITLE[dataset], TITLE_PREFIX[model])
 
     def _cond(exp):
         return exp['dataset'] == dataset and exp['model'] == model and exp['n_samples'] == str(n_samples)
@@ -48,7 +50,7 @@ def plot(root: str, dataset: str, model: str, n_samples: int, title: str, out: s
     plainlr_title = 'LR'
     stdlr_title = 'LR+C'
     lr_title = 'LR+C+IDB'
-    muprop_title = 'MuProp+C'
+    muprop_title = 'MuProp+C+IDB'
     leg_title = 'LEG'
     dr_title = 'RAM'
 
@@ -61,43 +63,58 @@ def plot(root: str, dataset: str, model: str, n_samples: int, title: str, out: s
     mark_dr = '*'
 
     def _plot(ax, log, ykey, color, marker, linestyle, label=None):
-        xs = [e['iteration'] for e in log]
+        xs = [e['iteration'] / 1000 for e in log]
         ys = [e[ykey] for e in log]
         ax.plot(xs, ys, color=color, marker=marker, linestyle=linestyle,
                 mec=color, mew=1, mfc='None', markevery=10, label=label)
 
+    plt.rcParams.update({
+        'legend.fontsize': 'small',
+        'axes.labelsize': 'large',
+        'axes.titlesize': 'x-large',
+        'xtick.labelsize': 'large',
+        'ytick.labelsize': 'large',
+    })
     figure = plt.figure()
 
-    axes = figure.add_subplot(211)
-    axes.set_ylabel('Gradient variance')
-    axes.set_xticklabels([])
-    axes.set_yscale('log')
+    if not trainonly:
+        axes = figure.add_subplot(211)
+        axes.set_ylabel('Gradient variance')
+        axes.set_xticklabels([])
+        axes.set_yscale('log')
 
-    _plot(axes, log_plainlr, 'gradvar/mean', color_plainlr, mark_plainlr, 'solid', plainlr_title)
-    _plot(axes, log_stdlr, 'gradvar/mean', color_stdlr, mark_stdlr, 'solid', stdlr_title)
-    _plot(axes, log_lr, 'gradvar/mean', color_lr, mark_lr, 'solid', lr_title)
-    _plot(axes, log_muprop, 'gradvar/mean', color_muprop, mark_muprop, 'solid', muprop_title)
-    _plot(axes, log_leg, 'gradvar/mean', color_leg, mark_leg, 'solid', leg_title)
-    _plot(axes, log_dr, 'gradvar/mean', color_dr, mark_dr, 'solid', dr_title)
+        _plot(axes, log_plainlr, 'gradvar/mean', color_plainlr, mark_plainlr, 'solid', plainlr_title)
+        _plot(axes, log_stdlr, 'gradvar/mean', color_stdlr, mark_stdlr, 'solid', stdlr_title)
+        _plot(axes, log_lr, 'gradvar/mean', color_lr, mark_lr, 'solid', lr_title)
+        _plot(axes, log_muprop, 'gradvar/mean', color_muprop, mark_muprop, 'solid', muprop_title)
+        _plot(axes, log_leg, 'gradvar/mean', color_leg, mark_leg, 'solid', leg_title)
+        _plot(axes, log_dr, 'gradvar/mean', color_dr, mark_dr, 'solid', dr_title)
 
-    axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=6, mode='expand', borderaxespad=0.)
+        axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=6, mode='expand', borderaxespad=0.)
 
-    axes = figure.add_subplot(212)
+        axes = figure.add_subplot(212)
+    else:
+        axes = figure.add_subplot(111)
+
+    axes.set_xlabel('Iteration (x1000)')
     axes.set_ylabel('Variational lower bound')
     axes.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
 
-    _plot(axes, log_plainlr, 'train/vb', color_plainlr, '', 'dotted')
-    _plot(axes, log_stdlr, 'train/vb', color_stdlr, '', 'dotted')
-    _plot(axes, log_lr, 'train/vb', color_lr, '', 'dotted')
-    _plot(axes, log_muprop, 'train/vb', color_muprop, '', 'dotted')
-    _plot(axes, log_leg, 'train/vb', color_leg, '', 'dotted')
-    _plot(axes, log_dr, 'train/vb', color_dr, '', 'dotted')
-    _plot(axes, log_plainlr, 'validation/vb', color_plainlr, mark_plainlr, 'solid', plainlr_title)
-    _plot(axes, log_stdlr, 'validation/vb', color_stdlr, mark_stdlr, 'solid', stdlr_title)
-    _plot(axes, log_lr, 'validation/vb', color_lr, mark_lr, 'solid', lr_title)
-    _plot(axes, log_muprop, 'validation/vb', color_muprop, mark_muprop, 'solid', muprop_title)
-    _plot(axes, log_leg, 'validation/vb', color_leg, mark_leg, 'solid', leg_title)
-    _plot(axes, log_dr, 'validation/vb', color_dr, mark_dr, 'solid', dr_title)
+    if trainonly:
+        _plot(axes, log_plainlr, 'train/vb', color_plainlr, mark_plainlr, 'solid', plainlr_title)
+        _plot(axes, log_stdlr, 'train/vb', color_stdlr, mark_stdlr, 'solid', stdlr_title)
+        _plot(axes, log_lr, 'train/vb', color_lr, mark_lr, 'solid', lr_title)
+        _plot(axes, log_muprop, 'train/vb', color_muprop, mark_muprop, 'solid', muprop_title)
+        _plot(axes, log_leg, 'train/vb', color_leg, mark_leg, 'solid', leg_title)
+        _plot(axes, log_dr, 'train/vb', color_dr, mark_dr, 'solid', dr_title)
+        axes.legend(bbox_to_anchor=(0, 1.02, 1., .102), loc=3, ncol=6, mode='expand', borderaxespad=0.)
+    else:
+        _plot(axes, log_plainlr, 'validation/vb', color_plainlr, mark_plainlr, 'solid', plainlr_title)
+        _plot(axes, log_stdlr, 'validation/vb', color_stdlr, mark_stdlr, 'solid', stdlr_title)
+        _plot(axes, log_lr, 'validation/vb', color_lr, mark_lr, 'solid', lr_title)
+        _plot(axes, log_muprop, 'validation/vb', color_muprop, mark_muprop, 'solid', muprop_title)
+        _plot(axes, log_leg, 'validation/vb', color_leg, mark_leg, 'solid', leg_title)
+        _plot(axes, log_dr, 'validation/vb', color_dr, mark_dr, 'solid', dr_title)
 
     figure.suptitle(title)
     figure.savefig(out)

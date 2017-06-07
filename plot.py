@@ -52,7 +52,7 @@ def plot(root: str, dataset: str, model: str, n_samples: int, title: str, traino
     lr_title = 'LR+C+IDB'
     muprop_title = 'MuProp+C+IDB'
     leg_title = 'LEG'
-    dr_title = 'RAM'
+    dr_title = 'optimal'
 
     color_plainlr = color_stdlr = color_lr = color_muprop = color_leg = color_dr = None
     mark_plainlr = '<'

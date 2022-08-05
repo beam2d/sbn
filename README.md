@@ -1,10 +1,8 @@
-Variational learning of sigmoid belief nets
-===========================================
+# Variational learning of sigmoid belief nets
 
 This repository implements gradient estimation methods for sigmoid belief nets.
 
-Cite
-----
+## Cite
 
 ```
 @inproceedings{Tokui17,
